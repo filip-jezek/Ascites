@@ -200,5 +200,245 @@ package Lymphatics
 
 
   end AbdominalCompliance;
+
+  model AscitesLevittSS
+    "Steady state ascites model from Levitt and Levitt 2002"
+    annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+          coordinateSystem(preserveAspectRatio=false)));
+
+
+  end AscitesLevittSS;
+
+  model LevittCase1SS "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
+  //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+  //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+  //  Real Ji, Aa, Vmin;
+
+  parameter Real Pra = 2 annotation(Evaluate = false);//right atrial pressure
+  parameter Real Pamin =   2;//minimum ascites pressure when Jlymph = 0
+  parameter Real Ap = 25; //Blood colloid osmotic pressure
+  parameter Real m =  0.8;
+  parameter Real Pmin = 2.0;//must be less than Pra
+  parameter Real Pdel = 2.0;
+  parameter Real Pbreak = 8;
+  parameter Real Ly =  0.131; //ml/min/mm Hg
+  parameter Real Ll =  0.172; //
+  parameter Real Lt =  0.104;
+  parameter Real D =  0.8; //New  - value of Henriksen and Lieberman
+  parameter Real Vmin =  0.1;  //minimum volume when P = Pamin
+
+  Real Phv;
+  Real Pp;
+  Real Pc;
+  Real Pl;
+  Real Jl;
+  Real Ji;
+  Real Jy;
+
+  Real Pa, Aa;
+  Real Pgrad = time;
+
+  Real Av = Vmin+D*(Pa-Pamin);
+  equation
+
+    //First condition, Pa&lt;Pra+Pdel;
+    if Pa < Pra + Pdel then
+      Phv = Pra+Pdel;
+  Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
+
+    else
+      Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
+  Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+
+    end if;
+  //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
+  Pp = Phv+Pgrad;
+  Pc = Pp+3;//intestinal capillary pressure
+  Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+  Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+  Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
+
+  Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
+  Jy=Jl+Ji;//fluid balance, //Aa =
+  //else
+      //Second condition, Pa&gt;Pra+Pdel;
+
+
+  // Pp = Phv+Pgrad;
+  // Pc = Pp+3;//intestinal capillary pressure
+  // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+  // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+  // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
+  //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+  // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
+  // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
+  // solutions2 = solve({eq1,eq2},{Pa,Aa});
+
+
+
+    annotation (experiment(
+        StartTime=6,
+        StopTime=25,
+        __Dymola_NumberOfIntervals=5000,
+        Tolerance=1e-05,
+        __Dymola_Algorithm="Dassl"));
+  end LevittCase1SS;
+
+  model LevitCase2Dynamics "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
+  parameter Boolean paracentesis = false;
+
+  //Independent variables
+  parameter Real dayconv =  24.0 "hours/day   - thus paramteters in units of 1/day";
+  parameter Real volconv = 0.001 "liter/ml";
+
+
+  //volconv = 1.0 "liter/ml";
+  parameter Real Ap = 25 "Plasma colloid osmoitc pressure";
+  parameter Real Po =  2.0 "minimum pressure in the pressure Pa vs Volume relation";
+  parameter Real Pmin = Po "minimum pressure in the lymph flow equation (in paper - assume that = Po";
+  parameter Real Vmin =  100.0*volconv "No lymph flow until ascitic volume ";
+  parameter Real Pbreak =  8.0 "pressure required to break liver lymphatics";
+  parameter Real D =  800*volconv " Experimental Valuesml/mm Hg   Volume = Vmin+D*(Pa - Po),  in steady state  Vol = D*P";
+
+
+  //Adjustable paramters:  These are the same values used in Ascites_state_grad9 and in paper
+  parameter Real m = 0.8 "liver tissue protein = 80% of plasma";
+  parameter Real Lt = 6.25*dayconv*volconv "ml/hour/mm Hg for total conductance from paper";
+  parameter Real Lc = 2.0*Lt;
+  parameter Real Li = Lc "distribute intestinal resistance equally between capilary and mesothelium";
+  parameter Real Ll =   10.3*dayconv*volconv;
+  parameter Real Ly0 =  7.86*dayconv*volconv "ml/hour mm Hg  steady state value";
+
+
+  //parameters for intestinal tissue
+  parameter Real Vimin = 100*volconv " = 100 ml = int. volume where Pi = Pa (i.e. 0 presssure gradient";
+  parameter Real Vimin2 = 50*volconv " have constant negative pressure for Vi <Vimin2";
+  parameter Real Di =  (0.75/100)/volconv "mm/ml Hg  P = Di*Vi  NOTE: units are the inverse of D - this corresponds to 0.75 mm Hg pressure increase for doubling of volume from 100 to 200 ml";
+  parameter Real Lyi =  18*dayconv*volconv "int. tissue lymph flow - about twice the conductance of the peritoneal space";
+  //Real Vi0 = 110*volconv "initial intestinal volume";
+  parameter Real Perm =  2.0*volconv "capillary protein permeability";
+
+  parameter Modelica.Units.SI.Time t_e =  30 "event time";
+  parameter Real Pgrad1 = 16, Pgrad2 = 12.8;
+  parameter Real Pra1 = 5,Pra2 = 2;
+
+  Real Pgrad = if time < t_e then Pgrad1 else Pgrad2;
+  Real Pra = if time < t_e then Pra1 else Pra2;
+  Real Ly = if paracentesis and time > t_e and time < t_e + 0.5 then Ly0*50 else Ly0 "At Pgrad = 20.0 and Pra = 5.0;";
+
+
+
+  //Initial condtions:
+  parameter Real V0 = Vmin "initial ascites volume";
+  // Real Pp = Phv+4 "Cannot use Phv+Pgrad1 because this make Ai <0 because of low Pa";
+  parameter Real Vi0 =  Vimin "Initial intestine volume follow from Pi = Pa";
+  //Real Ai = Ap+Pi-Pc "equilibrium across capillary";
+  Real Amti0 = Ai*Vi0 "initial intestine amount - Ai*VI0";
+  Real Amt0 = Aa*V0 "initial ascite amount";
+
+  // ODEs
+  Real Va(start = V0);
+  Real Amt(start = Amt0);
+  Real Vi(start = Vi0);
+  Real Amti(start = Amti0);
+
+
+  // Simple parameter relations (algebraic, not requiring diff. eq.
+  Real Pp(start = Phv+4) = Phv+Pgrad "portal vein pressure";
+  Real Pl = (Pp + Phv)/2.0 "liver tissue pressure = average sinusoidal pressure";
+
+  Real Pa( start = Pmin) = if Va<=Vmin then Po else Po+(Va-Vmin)/D "linear,  see older version for quadratic";
+  Real Phv(start = Pra1+3) = if Pra+2>Pa then Pra+2 else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+  Real Pc = Pp+3 "Intestinal capillary pressure";
+  Real Pi(start = Pa) = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
+
+  Real Aa(start = Ai) = if Amt<=0 then 0.001 else Amt/Va "ascites protein conc.";
+  Real Ai( start = Ap+Pi-Pc) =  if Amti<=0 then 0.001 else Amti/Vi "int. tissue protein conc.";
+
+  Real Ji =   Li*(Aa - Ai+Pi-Pa) "volume flow across intestinal mesotheium into ascites";
+  Real Jl =  if (Pl-Pa)<Pbreak then 0 else Ll*(Pl-Pa-Pbreak) "volume flow from liver";
+  Real Jy = if Pa<=Po then 0 else Ly*(Pmin+Pa-Pra) "0 if Va<0, Pmin pressure if Pa<Pra,else Pmin+Pa-Pra";
+
+  Real Jla = m*Ap*Jl "albumin flow from liver";
+  Real Jya = Aa*Jy " peritoneal lymph protrein removal rate (Aa = ascites protein)";
+
+  //New relations for intestinal tissue compartment
+  Real Jc =  Lc*(Pc - Pi+ Ai -Ap) "capillary water flow";
+  Real Jyi = if (Pi-Pa)<0 then 0 else Lyi*(Pi-Pa) "For some reason, this integrates rapidly gives reasonable results";
+  Real JcA = Perm*(Ap - Ai) "New -add a capillary protein permeabilit to balance int. lymph flow protein";
+
+
+  equation
+  //Differential equations:
+  der(Va) = Ji+Jl-Jy;
+  der(Amt)=Jla-Jya;
+  der(Vi)=Jc-Jyi-Ji;
+  der(Amti)= JcA  -Jyi*Ai;
+
+    annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+          coordinateSystem(preserveAspectRatio=false)),
+      experiment(
+        StopTime=60,
+        __Dymola_NumberOfIntervals=5000,
+        Tolerance=1e-05,
+        __Dymola_Algorithm="Dassl"));
+  end LevitCase2Dynamics;
+
+  package Auxiliary
+    model OncoticPressureToConc
+      parameter Modelica.Units.SI.Temperature T = 310;
+      parameter Real Wp(unit = "g/mol") = 65e3 "Weight of protein, kg/mol";
+      Physiolibrary.Types.Pressure Ponc = 0 annotation (Dialog(group="Time varying output signal"));
+      Physiolibrary.Types.Concentration c;
+      Real conc_gdl(unit = "g/dl") = c*Wp*1e-3/10;
+
+    equation
+      Ponc = c*Modelica.Constants.R*T;
+
+      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+            coordinateSystem(preserveAspectRatio=false)));
+    end OncoticPressureToConc;
+
+    model POnc2Conc "Calculation acc to Nitta 1981, PMID 7324049, for 37C and pH of 7.4"
+      parameter Boolean inputIsPressure=false
+                                             "use inputValue as oncotic pressure or as alb conc [g/dl] otherwise"
+        annotation (checkbox=true);
+        Real inputValue=4.6  "Pressure [Pa] if inputIsPresure, alb conc [g/dl] otherwise" annotation (Dialog(tab="General", group="Inputs"));
+            Real alpha = AGf*beta;
+            Real beta = 1-alpha;
+            parameter Real AGf=1.68  "Albumin to globulin fraction";
+      Real c;
+      Real c_alb = c*alpha;
+      Real c_glb = c*beta;
+      Physiolibrary.Types.Pressure Pi "Oncotic pressure";
+            parameter Physiolibrary.Types.Pressure mmHg=133.322387415;
+    equation
+      if inputIsPressure then
+        inputValue = Pi;
+      else
+        inputValue = c_alb;
+      end if;
+
+      // This surprisingly does not fit exactly their calculated values. Maybe they also applied conversion for pH and or temp?
+      Pi/mmHg = alpha*(2.8*c + 0.18*c^2 + 0.012*c^3) + beta*(0.9^c + 0.12*c^2 + 0.004
+        *c^3);
+
+      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+            coordinateSystem(preserveAspectRatio=false)));
+    end POnc2Conc;
+  end Auxiliary;
+
+  model LD_concs
+    extends LevitCase2Dynamics;
+    constant Physiolibrary.Types.Pressure mmHg=133.322387415;
+    Auxiliary.OncoticPressureToConc protein_ascites(Ponc=Aa*mmHg)
+      annotation (Placement(transformation(extent={{-40,-20},{-20,0}})));
+    Auxiliary.OncoticPressureToConc protein_plasma(Ponc=Ap*mmHg)
+      annotation (Placement(transformation(extent={{0,-20},{20,0}})));
+    Auxiliary.OncoticPressureToConc protein_intestin(Ponc=Ai*mmHg)
+      annotation (Placement(transformation(extent={{40,-20},{60,0}})));
+    Auxiliary.POnc2Conc pOnc2Conc
+      annotation (Placement(transformation(extent={{-40,12},{-20,32}})));
+  end LD_concs;
   annotation (uses(Physiolibrary(version="2.4.1"), Modelica(version="4.0.0")));
 end Lymphatics;
