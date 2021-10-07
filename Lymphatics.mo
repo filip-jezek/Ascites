@@ -201,14 +201,6 @@ package Lymphatics
 
   end AbdominalCompliance;
 
-  model AscitesLevittSS
-    "Steady state ascites model from Levitt and Levitt 2002"
-    annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-          coordinateSystem(preserveAspectRatio=false)));
-
-
-  end AscitesLevittSS;
-
   model LevittCase1SS "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
   //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
   //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
@@ -219,7 +211,7 @@ package Lymphatics
   parameter Real Ap = 25; //Blood colloid osmotic pressure
   parameter Real m =  0.8;
   parameter Real Pmin = 2.0;//must be less than Pra
-  parameter Real Pdel = 2.0;
+  parameter Real Pdel = 2.0 annotation(Evaluate=false);
   parameter Real Pbreak = 8;
   parameter Real Ly =  0.131; //ml/min/mm Hg
   parameter Real Ll =  0.172; //
@@ -236,7 +228,7 @@ package Lymphatics
   Real Jy;
 
   Real Pa, Aa;
-  Real Pgrad = time;
+  Real Pgrad = time annotation (Dialog(tab="General", group="Inputs"));
 
   Real Av = Vmin+D*(Pa-Pamin);
   equation
@@ -244,11 +236,11 @@ package Lymphatics
     //First condition, Pa&lt;Pra+Pdel;
     if Pa < Pra + Pdel then
       Phv = Pra+Pdel;
-  Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
+      Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
 
     else
       Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
-  Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+      Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
 
     end if;
   //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
@@ -295,10 +287,11 @@ package Lymphatics
   //volconv = 1.0 "liter/ml";
   parameter Real Ap = 25 "Plasma colloid osmoitc pressure";
   parameter Real Po =  2.0 "minimum pressure in the pressure Pa vs Volume relation";
+  parameter Real Pvg = 2.0 "Hep[atic vein to CVP gradient";
   parameter Real Pmin = Po "minimum pressure in the lymph flow equation (in paper - assume that = Po";
-  parameter Real Vmin =  100.0*volconv "No lymph flow until ascitic volume ";
+  parameter Real Vmin =  0.1 "No lymph flow until ascitic volume ";
   parameter Real Pbreak =  8.0 "pressure required to break liver lymphatics";
-  parameter Real D =  800*volconv " Experimental Valuesml/mm Hg   Volume = Vmin+D*(Pa - Po),  in steady state  Vol = D*P";
+  parameter Real D =  0.8 " Experimental Valuesml/mm Hg   Volume = Vmin+D*(Pa - Po),  in steady state  Vol = D*P";
 
 
   //Adjustable paramters:  These are the same values used in Ascites_state_grad9 and in paper
@@ -348,7 +341,8 @@ package Lymphatics
   Real Pl = (Pp + Phv)/2.0 "liver tissue pressure = average sinusoidal pressure";
 
   Real Pa( start = Pmin) = if Va<=Vmin then Po else Po+(Va-Vmin)/D "linear,  see older version for quadratic";
-  Real Phv(start = Pra1+3) = if Pra+2>Pa then Pra+2 else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+  // Real Phv(start = Pra1+3) = if Pra+Pvg >Pa then Pra+Pvg else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+  Real Phv(start = Pra1+3) = max(Pra+Pvg, Pa) "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
   Real Pc = Pp+3 "Intestinal capillary pressure";
   Real Pi(start = Pa) = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
 
@@ -403,10 +397,10 @@ package Lymphatics
       parameter Boolean inputIsPressure=false
                                              "use inputValue as oncotic pressure or as alb conc [g/dl] otherwise"
         annotation (checkbox=true);
-        Real inputValue=4.6  "Pressure [Pa] if inputIsPresure, alb conc [g/dl] otherwise" annotation (Dialog(tab="General", group="Inputs"));
+        Real inputValue=time "Pressure [Pa] if inputIsPresure, alb conc [g/dl] otherwise" annotation (Dialog(tab="General", group="Inputs"));
             Real alpha = AGf*beta;
             Real beta = 1-alpha;
-            parameter Real AGf=1.68  "Albumin to globulin fraction";
+            parameter Real AGf=4/3   "Albumin to globulin fraction";
       Real c;
       Real c_alb = c*alpha;
       Real c_glb = c*beta;
@@ -424,21 +418,68 @@ package Lymphatics
         *c^3);
 
       annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-            coordinateSystem(preserveAspectRatio=false)));
+            coordinateSystem(preserveAspectRatio=false)),
+        experiment(
+          StartTime=1,
+          StopTime=10,
+          __Dymola_Algorithm="Dassl"));
     end POnc2Conc;
   end Auxiliary;
 
   model LD_concs
-    extends LevitCase2Dynamics;
+    extends LevitCase2Dynamics(
+      Ap=22.0,
+      Pgrad2=5.0,
+      Pvg=0.0);
     constant Physiolibrary.Types.Pressure mmHg=133.322387415;
-    Auxiliary.OncoticPressureToConc protein_ascites(Ponc=Aa*mmHg)
+    Auxiliary.POnc2Conc pOnc2Conc(
+      inputIsPressure=false,
+      inputValue=4,
+      AGf=4/3)
       annotation (Placement(transformation(extent={{-40,-20},{-20,0}})));
-    Auxiliary.OncoticPressureToConc protein_plasma(Ponc=Ap*mmHg)
-      annotation (Placement(transformation(extent={{0,-20},{20,0}})));
-    Auxiliary.OncoticPressureToConc protein_intestin(Ponc=Ai*mmHg)
-      annotation (Placement(transformation(extent={{40,-20},{60,0}})));
-    Auxiliary.POnc2Conc pOnc2Conc
-      annotation (Placement(transformation(extent={{-40,12},{-20,32}})));
+    Auxiliary.POnc2Conc protein_asictes(
+      inputIsPressure=true,
+      inputValue=Aa,
+      AGf=4/3) annotation (Placement(transformation(extent={{0,-20},{20,0}})));
+    Auxiliary.POnc2Conc protein_intes(
+      inputIsPressure=true,
+      inputValue=Ai,
+      AGf=4/3) annotation (Placement(transformation(extent={{40,-20},{60,0}})));
   end LD_concs;
+
+  model LSS_concs
+    extends LevittCase1SS;
+    Auxiliary.POnc2Conc protein_plasma(inputIsPressure=true, inputValue=Ap)
+      annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
+    Auxiliary.POnc2Conc protein_asc(inputIsPressure=true, inputValue=Aa)
+      annotation (Placement(transformation(extent={{-20,20},{0,40}})));
+  end LSS_concs;
+
+  package Test
+    model Healthy
+      extends LD_concs(Vmin=0.01);
+    end Healthy;
+
+    model PortalHT
+      extends Healthy( Pgrad2=10);
+    end PortalHT;
+
+    model Nephrotic
+      extends Healthy(Ap=3.6, pOnc2Conc(inputValue=1));
+    end Nephrotic;
+
+    model Cirrhosis
+      extends Healthy(Pgrad2=20, pOnc2Conc(inputValue=2));
+    end Cirrhosis;
+  end Test;
+
+  package SSCharacteristics
+    model TestPra
+      LevittCase1SS levittCase1SS
+        annotation (Placement(transformation(extent={{-80,-2},{-60,18}})));
+      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+            coordinateSystem(preserveAspectRatio=false)));
+    end TestPra;
+  end SSCharacteristics;
   annotation (uses(Physiolibrary(version="2.4.1"), Modelica(version="4.0.0")));
 end Lymphatics;
