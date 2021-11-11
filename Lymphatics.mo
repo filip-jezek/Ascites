@@ -481,5 +481,163 @@ package Lymphatics
             coordinateSystem(preserveAspectRatio=false)));
     end TestPra;
   end SSCharacteristics;
+
+  package Hemodynamics
+    model Simplest
+      Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump(SolutionFlow=
+            8.3333333333333e-06)
+        annotation (Placement(transformation(extent={{-100,-10},{-80,10}})));
+      Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume(P=
+            266.64477483)
+        annotation (Placement(transformation(extent={{100,-10},{80,10}})));
+      SplanchnicCirculation splanchnicCirculation annotation (Placement(
+            transformation(rotation=0, extent={{-10,-6},{10,14}})));
+    equation
+      connect(unlimitedPump.q_out,splanchnicCirculation.q_in)
+                                                    annotation (Line(
+          points={{-80,0},{-10,0}},
+          color={0,0,0},
+          thickness=1));
+      connect(splanchnicCirculation.q_out,
+                        unlimitedVolume.y) annotation (Line(
+          points={{10,0},{80,0}},
+          color={0,0,0},
+          thickness=1));
+      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+            coordinateSystem(preserveAspectRatio=false)));
+    end Simplest;
+
+    model CVS_GCG
+      extends Physiolibrary.Hydraulic.Examples.CardiovascularSystem_GCG;
+      SplanchnicCirculation splanchnicCirculation
+        annotation (Placement(transformation(extent={{-24,-86},{-4,-66}})));
+    equation
+      connect(splanchnicCirculation.q_in, nonMuscle.q_in) annotation (Line(
+          points={{-24,-80},{-34,-80},{-34,-36},{-24,-36}},
+          color={0,0,0},
+          thickness=1));
+      connect(splanchnicCirculation.q_out, arteries.q_in) annotation (Line(
+          points={{-4,-80},{10,-80},{10,-36},{24,-36}},
+          color={0,0,0},
+          thickness=1));
+    end CVS_GCG;
+
+    model SplanchnicCirculation
+      Physiolibrary.Hydraulic.Components.Resistor splanchnic(Resistance=
+            7999343244.900001*(93/500))
+        annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
+      Physiolibrary.Hydraulic.Components.Resistor HV(Resistance=79993432.449)
+        annotation (Placement(transformation(extent={{40,-10},{60,10}})));
+      Physiolibrary.Hydraulic.Components.ElasticVessel Cliver(
+        volume_start=0.0006,
+        ZeroPressureVolume=0.0003,
+        Compliance=7.500615758456563e-09*(600/8))
+        annotation (Placement(transformation(extent={{-10,10},{10,30}})));
+      Physiolibrary.Hydraulic.Interfaces.HydraulicPort_b q_out annotation (
+          Placement(transformation(rotation=0, extent={{90,-50},{110,-30}})));
+      Physiolibrary.Hydraulic.Interfaces.HydraulicPort_a q_in annotation (
+          Placement(transformation(rotation=0, extent={{-110,-50},{-90,-30}})));
+    equation
+      connect(splanchnic.q_out,Cliver. q_in) annotation (Line(
+          points={{-40,0},{2.22045e-16,0},{2.22045e-16,20}},
+          color={0,0,0},
+          thickness=1));
+      connect(HV.q_in,Cliver. q_in) annotation (Line(
+          points={{40,0},{2.22045e-16,0},{2.22045e-16,20},{0,20}},
+          color={0,0,0},
+          thickness=1));
+      connect(q_out, HV.q_out) annotation (Line(points={{100,-40},{80,-40},{80,
+              0},{60,0}}, color={0,0,0}));
+      connect(q_in, splanchnic.q_in) annotation (Line(points={{-100,-40},{-80,
+              -40},{-80,0},{-60,0}}, color={0,0,0}));
+    end SplanchnicCirculation;
+  end Hemodynamics;
+
+  model LevittCase1SS_SI
+    "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
+  //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+  //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+  //  Real Ji, Aa, Vmin;
+  constant Real mmHg = 133.322;
+
+  parameter Physiolibrary.Types.Pressure Pra(displayUnit="mmHg")=266.64477483
+                                                 annotation(Evaluate = false);//right atrial pressure
+  parameter Physiolibrary.Types.Pressure Pamin=266.64477483;
+                                                     //minimum ascites pressure when Jlymph = 0
+  parameter Physiolibrary.Types.Pressure Ap(displayUnit="mmHg")=3333.059685375;
+                                                  //Blood colloid osmotic pressure
+  parameter Real m =  0.8;
+  parameter Physiolibrary.Types.Pressure Pmin(displayUnit="mmHg")=266.64477483;
+                                                    //must be less than Pra
+  parameter Physiolibrary.Types.Pressure Pdel(displayUnit="mmHg")=266.64477483
+                                                    annotation(Evaluate=false);
+  parameter Physiolibrary.Types.Pressure Pbreak(displayUnit="mmHg")=
+      1066.57909932;
+  parameter Physiolibrary.Types.HydraulicConductance Ly(displayUnit=
+          "ml/(mmHg.min)")=1.6376344405963e-11;                   //ml/min/mm Hg
+  parameter Physiolibrary.Types.HydraulicConductance Ll(displayUnit=
+          "ml/(mmHg.min)")=2.1501765174242e-11;                   //
+  parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit=
+          "ml/(mmHg.min)")=1.3001067314658e-11;
+  parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=
+      6.0004926067653e-06;
+                                                              //New  - value of Henriksen and Lieberman. 0.8 L/mmHg
+  parameter Physiolibrary.Types.Volume Vmin(displayUnit="l")=0.0001;
+                                                     //minimum volume when P = Pamin
+
+  Physiolibrary.Types.Pressure Phv "Hepatic vein pressure";
+  Physiolibrary.Types.Pressure Pp "Portal vein pressure";
+  Physiolibrary.Types.Pressure Pc "Intestinal capillary pressure";
+  Physiolibrary.Types.Pressure Pl "Liver sinus pressure";
+  Physiolibrary.Types.VolumeFlowRate Jl;
+  Physiolibrary.Types.VolumeFlowRate Ji;
+  Physiolibrary.Types.VolumeFlowRate Jy;
+
+  Physiolibrary.Types.Pressure Pa;
+  Real Aa;
+  Physiolibrary.Types.Pressure Pgrad = time*mmHg annotation (Dialog(tab="General", group="Inputs"));
+
+  Physiolibrary.Types.Volume Av = Vmin+D*(Pa-Pamin);
+  equation
+
+    //First condition, Pa&lt;Pra+Pdel;
+    if Pa < Pra + Pdel then
+      Phv = Pra+Pdel;
+      Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
+
+    else
+      Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
+      Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+
+    end if;
+  //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
+  Pp = Phv+Pgrad;
+  Pc = Pp+3;//intestinal capillary pressure
+  Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+  Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+  Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
+
+  Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
+  Jy=Jl+Ji;//fluid balance, //Aa =
+  //else
+      //Second condition, Pa&gt;Pra+Pdel;
+
+  // Pp = Phv+Pgrad;
+  // Pc = Pp+3;//intestinal capillary pressure
+  // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+  // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+  // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
+  //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+  // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
+  // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
+  // solutions2 = solve({eq1,eq2},{Pa,Aa});
+
+    annotation (experiment(
+        StartTime=6,
+        StopTime=25,
+        __Dymola_NumberOfIntervals=5000,
+        Tolerance=1e-05,
+        __Dymola_Algorithm="Dassl"));
+  end LevittCase1SS_SI;
   annotation (uses(Physiolibrary(version="2.4.1"), Modelica(version="4.0.0")));
 end Lymphatics;
