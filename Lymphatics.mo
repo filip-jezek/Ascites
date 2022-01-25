@@ -83,7 +83,7 @@ package Lymphatics
       Physiolibrary.Hydraulic.Components.Resistor HV(Resistance=79993432.449)
         annotation (Placement(transformation(extent={{40,-10},{60,10}})));
       Physiolibrary.Hydraulic.Components.ElasticVessel Cliver(
-        volume_start=0.0006,
+        volume_start=0.001,
         ZeroPressureVolume=0.0003,
         Compliance=7.500615758456563e-09*(600/8))
         annotation (Placement(transformation(extent={{-10,10},{10,30}})));
@@ -369,6 +369,8 @@ package Lymphatics
           annotation (Placement(transformation(extent={{-2,-50},{18,-30}})));
         Components.Ascites_Resistance ascites_Resistance
           annotation (Placement(transformation(extent={{-2,-86},{18,-66}})));
+        SplanchnicCirculation splanchnicCirculation
+          annotation (Placement(transformation(extent={{-2,-130},{18,-110}})));
       equation
         connect(Liver.cond, realExpression1.y) annotation (Line(points={{10,6},{
                 10,14},{-4,14},{-4,28},{-11,28}},
@@ -397,10 +399,50 @@ package Lymphatics
             points={{18,-76},{86,-76},{86,0},{60,0}},
             color={0,0,0},
             thickness=1));
+        connect(splanchnicCirculation.q_out, HV.q_out) annotation (Line(
+            points={{18,-124},{34,-124},{34,-76},{86,-76},{86,0},{60,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(splanchnicCirculation.q_in, unlimitedVolume1.y) annotation (
+            Line(
+            points={{-2,-124},{-22,-124},{-22,-74},{-86,-74},{-86,0},{-90,0}},
+            color={0,0,0},
+            thickness=1));
         annotation (Documentation(info="<html>
 <p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
 </html>"));
       end Ascites_Resistance;
+
+      model TestResistance
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=
+              13332.2387415)
+          annotation (Placement(transformation(extent={{-104,-10},{-84,10}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(usePressureInput=
+              true, P=666.611937075)
+          annotation (Placement(transformation(extent={{116,-10},{96,10}})));
+        Components.ResistancePressureDep resistancePressureDep(
+          Comp(displayUnit="l/mmHg") = 6.0004926067653e-06,
+          r0_nom(displayUnit="(mmHg.min)/l") = 719940892.041,
+          P_nom=666.611937075)
+          annotation (Placement(transformation(extent={{-10,-10},{10,10}})));
+        Modelica.Blocks.Sources.RealExpression realExpression(y=max(time, 5)*
+              133.322)
+          annotation (Placement(transformation(extent={{92,30},{112,50}})));
+      equation
+        connect(unlimitedVolume1.y, resistancePressureDep.q_in) annotation (
+            Line(
+            points={{-84,0},{-10,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(CVP.y, resistancePressureDep.q_out) annotation (Line(
+            points={{96,0},{10,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(realExpression.y, CVP.pressure) annotation (Line(points={{113,
+                40},{150,40},{150,0},{116,0}}, color={0,0,127}));
+        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+              coordinateSystem(preserveAspectRatio=false)));
+      end TestResistance;
     end Tests;
 
     package Components
@@ -453,6 +495,56 @@ package Lymphatics
 <p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
 </html>"));
       end Ascites_Resistance;
+
+      model ResistancePressureDep
+        "Hydraulic resistor, dependent on the filling"
+       extends Physiolibrary.Hydraulic.Interfaces.OnePort;
+       extends Physiolibrary.Icons.HydraulicResistor;
+
+        parameter Boolean enable=true   "if false, no resistance is used"
+          annotation(Evaluate=true, HideResult=true, choices(checkBox=true),Dialog(group="External inputs/outputs"));
+
+        parameter Boolean useConductanceInput = false
+          "=true, if external conductance value is used"
+          annotation(Evaluate=true, HideResult=true, choices(checkBox=true),Dialog(group="External inputs/outputs"));
+
+        Physiolibrary.Types.HydraulicResistance r
+          "Informative resistance value";
+        constant Real ni = 4e-3 "Blood dynamic viscosity";
+        constant Modelica.Units.SI.Length L = 1;
+        parameter Physiolibrary.Types.HydraulicCompliance Comp;
+        Modelica.Units.SI.Radius R;
+        Physiolibrary.Types.Volume V = Modelica.Constants.pi * (R - R0)^2*L;
+
+        Modelica.Units.SI.Radius R0 "Zero resistance, inferred from the P_nom at R0_nom";
+        Modelica.Units.SI.Radius R_nom "Zero resistance, inferred from the P_nom at R0_nom";
+        parameter Physiolibrary.Types.HydraulicResistance r0_nom "Nominal resistance at P_nom";
+        parameter Physiolibrary.Types.Pressure P_nom "Nominal end-point pressure";
+      equation
+        // to calculate the R_0 parameter
+        Modelica.Constants.pi * (R_nom - R0)^2*L = Comp*P_nom;
+        r0_nom = 8*ni*L/(Modelica.Constants.pi*R_nom^4);
+
+        r = 8*ni*L/(Modelica.Constants.pi*R^4);
+
+        V = Comp*q_out.pressure;
+
+        q_in.q = (q_in.pressure - q_out.pressure)/r;
+        annotation (Icon(coordinateSystem(preserveAspectRatio=false, extent={{
+                  -100,-100},{100,100}}),
+                         graphics={Text(
+                extent={{-220,-40},{200,-80}},
+                lineColor={0,0,255},
+                fillColor={58,117,175},
+                fillPattern=FillPattern.Solid,
+                textString="%name")}),
+          Documentation(revisions="<html>
+<p><i>2009-2010</i></p>
+<p>Marek Matejak, Charles University, Prague, Czech Republic </p>
+</html>",   info="<html>
+<p>This hydraulic conductance (resistance) element contains two connector sides. No hydraulic medium volume is changing in this element during simulation. That means that sum of flow in both connector sides is zero. The flow through element is determined by <b>Ohm&apos;s law</b>. It is used conductance (=1/resistance) because it could be numerical zero better then infinity in resistance. </p>
+</html>"));
+      end ResistancePressureDep;
     end Components;
 
     model StarlingCurve
@@ -509,7 +601,7 @@ package Lymphatics
       Components.Ascites_Resistance ascites_Resistance(
         TIPSS(enable=true, Resistance=Modelica.Constants.inf),
         Liver(enable=true, useConductanceInput=true),
-        realExpression1(y=1/(max(time/100, 5)*ascites_Resistance.mmHg/
+        realExpression1(y=1/(max(time/200, 5)*ascites_Resistance.mmHg/
               ascites_Resistance.Qnom)))
         annotation (Placement(transformation(extent={{16,-154},{-4,-134}})));
       ADAN_main.Components.Subsystems.Systemic.Organs.Renal.Renal_P_Int_i
