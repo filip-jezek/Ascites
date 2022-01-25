@@ -1,0 +1,12 @@
+*.mat
+/Ascites_intestine7_paracentesis.mw
+/Ascites_steady_grad9_color.maple
+/Ascites_steady_grad9_color.mw
+*.txt
+*.xml
+*.csv
+*.c
+*.obj
+*.mof
+*.exe
+
