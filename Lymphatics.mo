@@ -286,7 +286,7 @@ package Lymphatics
       end Ascites_Resistance;
 
       model ResistancePressureDep
-        "Hydraulic resistor, dependent on the filling"
+        "Hydraulic resistor, dependent on the pressure at the inflow, outflow or centered"
        extends Physiolibrary.Hydraulic.Interfaces.OnePort;
        extends Physiolibrary.Icons.HydraulicResistor;
 
@@ -297,28 +297,40 @@ package Lymphatics
           "=true, if external conductance value is used"
           annotation(Evaluate=true, HideResult=true, choices(checkBox=true),Dialog(group="External inputs/outputs"));
 
-        Physiolibrary.Types.HydraulicResistance r
-          "Informative resistance value";
+        Physiolibrary.Types.HydraulicResistance R "Actual resistance value";
         constant Real ni = 4e-3 "Blood dynamic viscosity";
         constant Modelica.Units.SI.Length L = 1;
-        parameter Physiolibrary.Types.HydraulicCompliance Comp;
-        Modelica.Units.SI.Radius R;
-        Physiolibrary.Types.Volume V = Modelica.Constants.pi * (R - R0)^2*L;
+        parameter Physiolibrary.Types.HydraulicCompliance Comp(displayUnit="l/mmHg")=7.5006157584566e-05;
+        Modelica.Units.SI.Radius r "Radius";
+        Physiolibrary.Types.Volume V = Modelica.Constants.pi * (r - R0)^2*L;
 
         Modelica.Units.SI.Radius R0 "Zero resistance, inferred from the P_nom at R0_nom";
         Modelica.Units.SI.Radius R_nom "Zero resistance, inferred from the P_nom at R0_nom";
-        parameter Physiolibrary.Types.HydraulicResistance r0_nom "Nominal resistance at P_nom";
-        parameter Physiolibrary.Types.Pressure P_nom "Nominal end-point pressure";
+        parameter Physiolibrary.Types.HydraulicResistance r0_nom(displayUnit="(mmHg.min)/l")=
+           79993432.449                                          "Nominal resistance at P_nom";
+        parameter Physiolibrary.Types.Pressure P_nom=1333.22387415
+                                                     "Nominal end-point pressure";
+
+        parameter Side side=Lymphatics.Hemodynamics.Components.Side.Central "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
+        Physiolibrary.Types.Pressure P_inner;
       equation
         // to calculate the R_0 parameter
         Modelica.Constants.pi * (R_nom - R0)^2*L = Comp*P_nom;
         r0_nom = 8*ni*L/(Modelica.Constants.pi*R_nom^4);
 
-        r = 8*ni*L/(Modelica.Constants.pi*R^4);
+        R = 8*ni*L/(Modelica.Constants.pi*r^4);
 
-        V = Comp*q_out.pressure;
+        V =Comp*P_inner;
 
-        q_in.q = (q_in.pressure - q_out.pressure)/r;
+        if side == Side.Left then
+          P_inner = q_in.pressure;
+        elseif side == Side.Central then
+          P_inner = (q_in.pressure + q_out.pressure)/2;
+        else // side == Side.Right then
+          P_inner = q_out.pressure;
+        end if;
+
+        q_in.q =(q_in.pressure - q_out.pressure)/R;
         annotation (Icon(coordinateSystem(preserveAspectRatio=false, extent={{
                   -100,-100},{100,100}}),
                          graphics={Text(
@@ -328,12 +340,24 @@ package Lymphatics
                 fillPattern=FillPattern.Solid,
                 textString="%name"),
               Line(
-                points={{-100,20},{22,16},{80,60},{100,60}},
+                points={{-100,60},{-80,60},{-20,16},{22,16},{80,60},{100,60}},
+                color={0,0,0},
+                thickness=0.5,
+                smooth=Smooth.Bezier,
+                pattern=LinePattern.Dash),
+              Line(
+                points={{-100,-60},{-80,-60},{-20,-16},{22,-16},{80,-60},{100,-60}},
+                color={0,0,0},
+                thickness=0.5,
+                smooth=Smooth.Bezier,
+                pattern=LinePattern.Dash),
+              Line(
+                points={{-100,72},{-80,72},{-20,36},{20,36},{80,72},{100,72}},
                 color={0,0,0},
                 thickness=0.5,
                 smooth=Smooth.Bezier),
               Line(
-                points={{-100,-20},{22,-16},{80,-60},{100,-60}},
+                points={{-100,-72},{-80,-72},{-20,-36},{20,-36},{80,-72},{100,-72}},
                 color={0,0,0},
                 thickness=0.5,
                 smooth=Smooth.Bezier)}),
@@ -440,7 +464,7 @@ package Lymphatics
               coordinateSystem(preserveAspectRatio=false)));
       end HagenPoiseulleConductance;
 
-      model ResistanceControlled
+      model ResistanceControlled "Integral-controlled resistance to maintain nominal flow rate"
        //extends Physiolibrary.Hydraulic.Interfaces.OnePort;
 
         extends Physiolibrary.Icons.Resistor;
@@ -488,6 +512,14 @@ package Lymphatics
         annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
               coordinateSystem(preserveAspectRatio=false)));
       end ResistanceControlled;
+
+      type Side = enumeration(
+          Left                     "Left (inflow) side",
+          Central                                                "Central",
+          Right                                                                   "Right (outflow)") "Side of a resistance";
+      model Ascites_Resistance_Shunts
+        extends Ascites_Resistance;
+      end Ascites_Resistance_Shunts;
     end Components;
 
     package Tests
@@ -581,8 +613,8 @@ package Lymphatics
       end Ascites_Resistance;
 
       model TestResistance
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=
-              13332.2387415)
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(
+            usePressureInput=true, P=13332.2387415)
           annotation (Placement(transformation(extent={{-104,-10},{-84,10}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(usePressureInput=
               true, P=666.611937075)
@@ -590,11 +622,15 @@ package Lymphatics
         Components.ResistancePressureDep resistancePressureDep(
           Comp(displayUnit="l/mmHg") = 6.0004926067653e-06,
           r0_nom(displayUnit="(mmHg.min)/l") = 719940892.041,
-          P_nom=666.611937075)
+          P_nom=666.611937075,
+          side=Lymphatics.Hemodynamics.Components.Side.Right)
           annotation (Placement(transformation(extent={{-10,-10},{10,10}})));
         Modelica.Blocks.Sources.RealExpression realExpression(y=max(time, 5)*
               133.322)
           annotation (Placement(transformation(extent={{92,30},{112,50}})));
+        Modelica.Blocks.Sources.RealExpression realExpression1(y=(10*sin(6.28*
+              time) + 100)*133.322)
+          annotation (Placement(transformation(extent={{-144,34},{-124,54}})));
       equation
         connect(unlimitedVolume1.y, resistancePressureDep.q_in) annotation (
             Line(
@@ -607,8 +643,14 @@ package Lymphatics
             thickness=1));
         connect(realExpression.y, CVP.pressure) annotation (Line(points={{113,
                 40},{150,40},{150,0},{116,0}}, color={0,0,127}));
+        connect(unlimitedVolume1.pressure, realExpression1.y) annotation (Line(
+              points={{-104,0},{-123,0},{-123,44}}, color={0,0,127}));
         annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)));
+              coordinateSystem(preserveAspectRatio=false)),
+          experiment(
+            StopTime=10,
+            Tolerance=1e-06,
+            __Dymola_Algorithm="Cvode"));
       end TestResistance;
 
       model AscitesResistanceBased
@@ -1018,7 +1060,7 @@ package Lymphatics
           annotation (Placement(transformation(extent={{-4,-84},{-24,-64}})));
         Modelica.Blocks.Sources.CombiTimeTable combiTimeTable(table=[0.0,8.3333333333333e-05;
               500,8.3333333333333e-05; 501,5.3333333333333e-05; 1000,5.3333333333333e-05;
-              1001,8.3333333333333e-05])
+              1001,8.3333333333333e-05], extrapolation=Modelica.Blocks.Types.Extrapolation.HoldLastPoint)
           annotation (Placement(transformation(extent={{92,42},{72,62}})));
       equation
         connect(pulmonaryArteries.q_in,pulmonary. q_in) annotation (Line(
@@ -1121,6 +1163,13 @@ package Lymphatics
               Physiolibrary.Hydraulic.Components.Resistor IntestinesArt(
                 Resistance=84*ascites_Resistance.mmHg/ascites_Resistance.Qnom)));
       end CardiovascularSystem_GCG_Asc_NoReg;
+
+      model CardiovascularSystem_GCG_Asc_NoReg_NoCOreg
+        extends CardiovascularSystem_GCG_Asc_NoReg(
+          rightStarling(enabled=false),
+          leftStarling(enabled=false),
+          combiTimeTable(extrapolation=Modelica.Blocks.Types.Extrapolation.HoldLastPoint));
+      end CardiovascularSystem_GCG_Asc_NoReg_NoCOreg;
     end Experiments;
   end Hemodynamics;
 
