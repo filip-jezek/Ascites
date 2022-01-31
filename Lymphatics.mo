@@ -285,6 +285,27 @@ package Lymphatics
 </html>"));
       end Ascites_Resistance;
 
+      model Ascites_Resistance_Shunts
+        extends Ascites_Resistance;
+        ResistancePressureDep resistancePressureDep(
+          Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
+          r0_nom(displayUnit="(mmHg.min)/ml") = 7999343244.9,
+          P_nom=1199.901486735,
+          side=Lymphatics.Hemodynamics.Components.Side.Central)
+          annotation (Placement(transformation(extent={{-4,-72},{16,-52}})));
+      equation
+        connect(resistancePressureDep.q_in, IntestineVenule.q_out) annotation (
+            Line(
+            points={{-4,-62},{-14,-62},{-14,0},{-20,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(resistancePressureDep.q_out, HV.q_in) annotation (Line(
+            points={{16,-62},{24,-62},{24,0},{28,0},{28,2.22045e-16},{40,
+                2.22045e-16}},
+            color={0,0,0},
+            thickness=1));
+      end Ascites_Resistance_Shunts;
+
       model ResistancePressureDep
         "Hydraulic resistor, dependent on the pressure at the inflow, outflow or centered"
        extends Physiolibrary.Hydraulic.Interfaces.OnePort;
@@ -517,9 +538,6 @@ package Lymphatics
           Left                     "Left (inflow) side",
           Central                                                "Central",
           Right                                                                   "Right (outflow)") "Side of a resistance";
-      model Ascites_Resistance_Shunts
-        extends Ascites_Resistance;
-      end Ascites_Resistance_Shunts;
     end Components;
 
     package Tests
@@ -912,22 +930,48 @@ package Lymphatics
       model HVPGShuntsComparison
         Components.Ascites_Resistance ascites_NoShunts
           annotation (Placement(transformation(extent={{-20,20},{0,40}})));
-        Components.Ascites_Resistance ascites_Shunts(useTIPPS=true)
+        Components.Ascites_Resistance ascites_TIPPS(useTIPPS=true)
           annotation (Placement(transformation(extent={{-20,-40},{0,-20}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(
-            SolutionFlow(displayUnit="l/min") = 1.6666666666667e-05)
+            SolutionFlow(displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump1(
-            SolutionFlow(displayUnit="l/min") = 1.6666666666667e-05)
+            SolutionFlow(displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-60,-40},{-40,-20}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts(useTIPPS=false,
+            resistancePressureDep(
+            Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
+            r0_nom=Shunt_R0nom,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom))
+          annotation (Placement(transformation(extent={{-20,-10},{0,10}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump2(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
+        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")
+           = 1.6666666666667e-05 "Splanchnic perfusion";
+        Components.Ascites_Resistance_Shunts ascites_ShuntsAndTIPPS(useTIPPS=
+              true, resistancePressureDep(
+            Comp=Shunt_Compliance,
+            r0_nom=Shunt_R0nom,
+            P_nom=Shunt_Pnom))
+          annotation (Placement(transformation(extent={{-20,-70},{0,-50}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump3(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-70},{-40,-50}})));
+        parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
+            displayUnit="ml/mmHg") = 1.50012E-07;
+        parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")
+           = 1466.55 "Nominal end-point pressure";
+        parameter Physiolibrary.Types.HydraulicResistance Shunt_R0nom=
+            7999343244.9 "Nominal resistance at P_nom";
       equation
         connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
             points={{0,30},{70,30},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_Shunts.q_out, CVP.y) annotation (Line(
+        connect(ascites_TIPPS.q_out, CVP.y) annotation (Line(
             points={{0,-30},{70,-30},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
@@ -935,15 +979,32 @@ package Lymphatics
             points={{-20,30},{-40,30}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_Shunts.q_in, unlimitedPump1.q_out) annotation (Line(
+        connect(ascites_TIPPS.q_in, unlimitedPump1.q_out) annotation (Line(
             points={{-20,-30},{-40,-30}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_Shunts.q_out, CVP.y) annotation (Line(
+            points={{0,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_Shunts.q_in, unlimitedPump2.q_out) annotation (Line(
+            points={{-20,0},{-40,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntsAndTIPPS.q_out, CVP.y) annotation (Line(
+            points={{0,-60},{70,-60},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntsAndTIPPS.q_in, unlimitedPump3.q_out) annotation (
+            Line(
+            points={{-20,-60},{-40,-60}},
             color={0,0,0},
             thickness=1));
         annotation (
           Icon(coordinateSystem(preserveAspectRatio=false)),
           Diagram(coordinateSystem(preserveAspectRatio=false)),
           experiment(
-            StartTime=25,
+            StartTime=5,
             StopTime=35,
             __Dymola_NumberOfIntervals=200,
             Tolerance=1e-06,
@@ -954,26 +1015,38 @@ package Lymphatics
       end HVPGShuntsComparison;
 
       model HVPGShuntsComparison_Size
-        extends HVPGShuntsComparison(ascites_NoShunts(Liver(useConductanceInput
-                =true, Resistance(displayUnit="(mmHg.min)/l") = 199983581.1225),
-              realExpression1(y=1/(25*ascites_NoShunts.mmHg/ascites_NoShunts.Qnom))),
-            ascites_Shunts(
+        extends HVPGShuntsComparison(
+          ascites_TIPPS(
             Liver(useConductanceInput=true, Resistance=199983581122.5),
             TIPSS(useConductanceInput=true, Resistance=199983581.1225),
             realExpression1(y=1/(25*ascites_NoShunts.mmHg/ascites_NoShunts.Qnom)),
 
-            realExpression2(y=hagenPoiseulleConductance.hydraulicconductance)));
+            realExpression2(y=hagenPoiseulleConductance.hydraulicconductance)),
+
+          ascites_NoShunts(Liver(useConductanceInput=true, Resistance(
+                  displayUnit="(mmHg.min)/l") = 199983581.1225),
+              realExpression1(y=1/(25*ascites_NoShunts.mmHg/ascites_NoShunts.Qnom))),
+
+          ascites_ShuntsAndTIPPS(realExpression2(y=hagenPoiseulleConductance.hydraulicconductance),
+              TIPSS(useConductanceInput=true)));
 
         Components.HagenPoiseulleConductance hagenPoiseulleConductance(
-          d_nominal(displayUnit="mm") = 0.001,
+          d_nominal(displayUnit="mm") = 0.009,
+          L=0.08,
           useNominalDiameter=true,
           q_nominal=1.6666666666667e-06)
-          annotation (Placement(transformation(extent={{-40,-80},{-20,-60}})));
+          annotation (Placement(transformation(extent={{-40,-100},{-20,-80}})));
         parameter Physiolibrary.Types.HydraulicResistance LiverResistance(displayUnit=
              "(mmHg.min)/l") = 199983581.1225
           "Hydraulic conductance if useConductanceInput=false";
       equation
 
+        annotation (experiment(
+            StartTime=5,
+            StopTime=35,
+            __Dymola_NumberOfIntervals=200,
+            Tolerance=1e-06,
+            __Dymola_Algorithm="Euler"));
       end HVPGShuntsComparison_Size;
 
       model CVS_GCG_Ascites
