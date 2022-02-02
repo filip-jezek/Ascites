@@ -159,7 +159,7 @@ package Lymphatics
         Physiolibrary.Hydraulic.Components.PumpPressureHead
                           HV(useExternalCollapsingPressure=true, p_head0=-266.64477483)
           "Hepatic vein (free)"
-          annotation (Placement(transformation(extent={{40,-10},{60,10}})));
+          annotation (Placement(transformation(extent={{52,-10},{72,10}})));
         Physiolibrary.Hydraulic.Sensors.PressureMeasure PRa "Right atrial pressure"
           annotation (Placement(transformation(extent={{86,58},{66,78}})));
         replaceable
@@ -186,7 +186,7 @@ package Lymphatics
         connect(PRa.pressure, levittCase1SsSiIo.Pra) annotation (Line(points={{70,64},
                 {62,64}},                 color={0,0,127}));
         connect(Liver.q_out, HV.q_in) annotation (Line(
-            points={{20,0},{40,0}},
+            points={{20,0},{52,0}},
             color={0,0,0},
             thickness=1));
         connect(IntestineVenule.q_out, Liver.q_in) annotation (Line(
@@ -215,10 +215,10 @@ package Lymphatics
           annotation (Line(points={{34,56},{42,56}}, color={0,0,127}));
         connect(Pc.pressure, levittCase1SsSiIo.Pc)
           annotation (Line(points={{-32,72},{42,72}}, color={0,0,127}));
-        connect(HV.EP, levittCase1SsSiIo.Pa) annotation (Line(points={{40,8},{
-                40,40},{52,40},{52,56}}, color={0,0,127}));
+        connect(HV.EP, levittCase1SsSiIo.Pa) annotation (Line(points={{52,8},{
+                52,56}},                 color={0,0,127}));
         connect(PRa.q_in, HV.q_out) annotation (Line(
-            points={{80,62},{80,0},{60,0}},
+            points={{80,62},{80,0},{72,0}},
             color={0,0,0},
             thickness=1));
         annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
@@ -267,11 +267,11 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(TIPSS.q_out, HV.q_in) annotation (Line(
-            points={{18,-34},{24,-34},{24,0},{40,0}},
+            points={{18,-34},{24,-34},{24,0},{52,0}},
             color={0,0,0},
             thickness=1));
         connect(HV.q_out, q_out) annotation (Line(
-            points={{60,0},{100,0}},
+            points={{72,0},{100,0}},
             color={0,0,0},
             thickness=1));
         connect(q_in, IntestinesArt.q_in) annotation (Line(
@@ -300,7 +300,7 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(resistancePressureDep.q_out, HV.q_in) annotation (Line(
-            points={{16,-62},{24,-62},{24,0},{28,0},{28,2.22045e-16},{40,
+            points={{16,-62},{24,-62},{24,0},{28,0},{28,2.22045e-16},{52,
                 2.22045e-16}},
             color={0,0,0},
             thickness=1));
@@ -387,7 +387,90 @@ package Lymphatics
 <p>Marek Matejak, Charles University, Prague, Czech Republic </p>
 </html>",   info="<html>
 <p>This hydraulic conductance (resistance) element contains two connector sides. No hydraulic medium volume is changing in this element during simulation. That means that sum of flow in both connector sides is zero. The flow through element is determined by <b>Ohm&apos;s law</b>. It is used conductance (=1/resistance) because it could be numerical zero better then infinity in resistance. </p>
-</html>"));
+</html>"),
+          Diagram(graphics={
+              Ellipse(
+                extent={{38,28},{58,-28}},
+                lineColor={0,140,72},
+                pattern=LinePattern.Dot,
+                lineThickness=0.5),
+              Text(
+                extent={{40,18},{86,26}},
+                textColor={0,0,0},
+                textString="Model"),
+              Ellipse(
+                extent={{42,20},{54,-18}},
+                lineColor={0,0,0},
+                pattern=LinePattern.Dash,
+                lineThickness=0.5),
+              Ellipse(
+                extent={{-58,26},{-46,-24}},
+                lineColor={28,108,200},
+                lineThickness=0.5),
+              Ellipse(
+                extent={{42,14},{52,-12}},
+                lineColor={28,108,200},
+                lineThickness=0.5),
+              Line(
+                points={{-52,26},{46,14}},
+                color={28,108,200},
+                thickness=0.5),
+              Line(
+                points={{-52,-24},{48,-12}},
+                color={28,108,200},
+                thickness=0.5),
+              Text(
+                extent={{-78,10},{-64,-8}},
+                textColor={28,108,200},
+                textString="Pin"),
+              Text(
+                extent={{60,10},{82,-8}},
+                textColor={28,108,200},
+                textString="Pout"),
+              Ellipse(
+                extent={{-12,20},{0,-18}},
+                lineColor={0,0,0},
+                pattern=LinePattern.Dash,
+                lineThickness=0.5),
+              Line(
+                points={{-52,20},{48,20}},
+                color={0,0,0},
+                pattern=LinePattern.Dash,
+                thickness=0.5),
+              Line(
+                points={{-52,-18},{48,-18}},
+                color={0,0,0},
+                pattern=LinePattern.Dash,
+                thickness=0.5),
+              Ellipse(
+                extent={{-58,20},{-46,-18}},
+                lineColor={0,0,0},
+                pattern=LinePattern.Dash,
+                lineThickness=0.5),
+              Ellipse(
+                extent={{-16,28},{4,-28}},
+                lineColor={0,140,72},
+                pattern=LinePattern.Dot,
+                lineThickness=0.5),
+              Line(
+                points={{-52,28},{48,28}},
+                color={0,140,72},
+                pattern=LinePattern.Dot,
+                thickness=0.5),
+              Line(
+                points={{-52,-28},{48,-28}},
+                color={0,140,72},
+                pattern=LinePattern.Dot,
+                thickness=0.5),
+              Ellipse(
+                extent={{-62,28},{-42,-28}},
+                lineColor={0,140,72},
+                pattern=LinePattern.Dot,
+                lineThickness=0.5),
+              Text(
+                extent={{50,28},{132,36}},
+                textColor={0,140,72},
+                textString="Higher midpoint pressure")}));
       end ResistancePressureDep;
 
       model StarlingCurve
@@ -554,7 +637,7 @@ package Lymphatics
                 {-24,10},{-24,-42},{-31,-42}},
                                          color={0,0,127}));
         connect(CVP.y, HV.q_out) annotation (Line(
-            points={{80,0},{60,0}},
+            points={{80,0},{72,0}},
             color={0,0,0},
             thickness=1));
       end Ascites_PG;
@@ -597,7 +680,7 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(CVP.y, HV.q_out) annotation (Line(
-            points={{90,0},{60,0}},
+            points={{90,0},{72,0}},
             color={0,0,0},
             thickness=1));
         connect(TIPSS.q_in, IntestineVenule.q_out) annotation (Line(
@@ -605,7 +688,7 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(TIPSS.q_out, HV.q_in) annotation (Line(
-            points={{18,-40},{24,-40},{24,2.22045e-16},{40,2.22045e-16}},
+            points={{18,-40},{24,-40},{24,2.22045e-16},{52,2.22045e-16}},
             color={0,0,0},
             thickness=1));
         connect(ascites_Resistance.q_in, unlimitedVolume1.y) annotation (Line(
@@ -613,11 +696,11 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(ascites_Resistance.q_out, HV.q_out) annotation (Line(
-            points={{18,-76},{86,-76},{86,0},{60,0}},
+            points={{18,-76},{86,-76},{86,0},{72,0}},
             color={0,0,0},
             thickness=1));
         connect(splanchnicCirculation.q_out, HV.q_out) annotation (Line(
-            points={{18,-124},{34,-124},{34,-76},{86,-76},{86,0},{60,0}},
+            points={{18,-124},{34,-124},{34,-76},{86,-76},{86,0},{72,0}},
             color={0,0,0},
             thickness=1));
         connect(splanchnicCirculation.q_in, unlimitedVolume1.y) annotation (
@@ -846,12 +929,12 @@ package Lymphatics
             points={{10,-2},{90,-2}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_Resistance.q_in, resistanceControlled.q_in) annotation
-          (Line(
+        connect(ascites_Resistance.q_in, resistanceControlled.q_in) annotation (
+           Line(
             points={{-10,-40},{-44,-40},{-44,-42},{-82,-42},{-82,-2},{-10,-2}},
-
             color={0,0,0},
             thickness=1));
+
         connect(ascites_Resistance.q_out, CVP.y) annotation (Line(
             points={{10,-40},{74,-40},{74,-2},{90,-2}},
             color={0,0,0},
@@ -903,11 +986,11 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(Shunt1.q_out, HV.q_in) annotation (Line(
-            points={{18,-34},{24,-34},{24,0},{40,0}},
+            points={{18,-34},{24,-34},{24,0},{52,0}},
             color={0,0,0},
             thickness=1));
         connect(HV.q_out, q_out) annotation (Line(
-            points={{60,0},{100,0}},
+            points={{72,0},{100,0}},
             color={0,0,0},
             thickness=1));
         connect(q_in, IntestinesArt.q_in) annotation (Line(
@@ -915,7 +998,7 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(CVP.y, HV.q_out) annotation (Line(
-            points={{100,-60},{80,-60},{80,0},{60,0}},
+            points={{100,-60},{80,-60},{80,0},{72,0}},
             color={0,0,0},
             thickness=1));
         connect(unlimitedPump.q_out, IntestinesArt.q_in) annotation (Line(
@@ -928,47 +1011,60 @@ package Lymphatics
       end HVPG_shunts;
 
       model HVPGShuntsComparison
-        Components.Ascites_Resistance ascites_NoShunts
-          annotation (Placement(transformation(extent={{-20,20},{0,40}})));
-        Components.Ascites_Resistance ascites_TIPPS(useTIPPS=true)
-          annotation (Placement(transformation(extent={{-20,-40},{0,-20}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump1(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-40},{-40,-20}})));
+        Components.Ascites_Resistance ascites_NoShunts
+          annotation (Placement(transformation(extent={{-20,50},{0,70}})));
+        Components.Ascites_Resistance_Shunts ascites_ShuntLinear(useTIPPS=false,
+            resistancePressureDep(
+            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-15,
+            r0_nom(displayUnit="(mmHg.min)/l") = 799934324.49,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom))
+          annotation (Placement(transformation(extent={{-20,20},{0,40}})));
         Components.Ascites_Resistance_Shunts ascites_Shunts(useTIPPS=false,
             resistancePressureDep(
             Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
             r0_nom=Shunt_R0nom,
             P_nom(displayUnit="mmHg") = Shunt_Pnom))
           annotation (Placement(transformation(extent={{-20,-10},{0,10}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump2(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
-        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")
-           = 1.6666666666667e-05 "Splanchnic perfusion";
+        Components.Ascites_Resistance ascites_TIPPS(useTIPPS=true, TIPSS(
+              Resistance=R_TIPSS))
+          annotation (Placement(transformation(extent={{-20,-40},{0,-20}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntsAndTIPPS(useTIPPS=
               true, resistancePressureDep(
             Comp=Shunt_Compliance,
             r0_nom=Shunt_R0nom,
-            P_nom=Shunt_Pnom))
+            P_nom=Shunt_Pnom),
+          TIPSS(Resistance=R_TIPSS))
           annotation (Placement(transformation(extent={{-20,-70},{0,-50}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,50},{-40,70}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump1(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-40},{-40,-20}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump2(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump3(
             SolutionFlow(displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-60,-70},{-40,-50}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
+        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")
+          =1.6666666666667e-05   "Splanchnic perfusion";
         parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
-            displayUnit="ml/mmHg") = 1.50012E-07;
-        parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")
-           = 1466.55 "Nominal end-point pressure";
+            displayUnit="ml/mmHg")=1.50012e-07;
+        parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=
+          1466.55    "Nominal end-point pressure";
         parameter Physiolibrary.Types.HydraulicResistance Shunt_R0nom=
             7999343244.9 "Nominal resistance at P_nom";
+        parameter Physiolibrary.Types.HydraulicResistance R_TIPSS(displayUnit=
+              "(mmHg.min)/l") = 39996700.0;
       equation
         connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
-            points={{0,30},{70,30},{70,0},{80,0}},
+            points={{0,60},{70,60},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
         connect(ascites_TIPPS.q_out, CVP.y) annotation (Line(
@@ -976,7 +1072,7 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
         connect(ascites_NoShunts.q_in, unlimitedPump.q_out) annotation (Line(
-            points={{-20,30},{-40,30}},
+            points={{-20,60},{-40,60}},
             color={0,0,0},
             thickness=1));
         connect(ascites_TIPPS.q_in, unlimitedPump1.q_out) annotation (Line(
@@ -1000,18 +1096,27 @@ package Lymphatics
             points={{-20,-60},{-40,-60}},
             color={0,0,0},
             thickness=1));
+        connect(ascites_ShuntLinear.q_out, CVP.y) annotation (Line(
+            points={{0,30},{70,30},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntLinear.q_in, unlimitedPump4.q_out) annotation (
+            Line(
+            points={{-20,30},{-40,30}},
+            color={0,0,0},
+            thickness=1));
         annotation (
           Icon(coordinateSystem(preserveAspectRatio=false)),
           Diagram(coordinateSystem(preserveAspectRatio=false)),
           experiment(
-            StartTime=5,
+            StartTime=4,
             StopTime=35,
             __Dymola_NumberOfIntervals=200,
             Tolerance=1e-06,
             __Dymola_Algorithm="Cvode"),
-          __Dymola_Commands(file(
-              ensureSimulated=true,
-              autoRun=true) = "TIPPS.mos" "Plot HVPG for shunt and non-shunt"));
+          __Dymola_Commands(file(ensureSimulated=true) = "TIPPS.mos"
+              "Plot HVPG for shunt and non-shunt", file=
+                "Fig2 Treatment with TIPSS.mos" "Treatment with TIPSS"));
       end HVPGShuntsComparison;
 
       model HVPGShuntsComparison_Size
@@ -1019,19 +1124,15 @@ package Lymphatics
           ascites_TIPPS(
             Liver(useConductanceInput=true, Resistance=199983581122.5),
             TIPSS(useConductanceInput=true, Resistance=199983581.1225),
-            realExpression1(y=1/(25*ascites_NoShunts.mmHg/ascites_NoShunts.Qnom)),
-
             realExpression2(y=hagenPoiseulleConductance.hydraulicconductance)),
-
           ascites_NoShunts(Liver(useConductanceInput=true, Resistance(
-                  displayUnit="(mmHg.min)/l") = 199983581.1225),
-              realExpression1(y=1/(25*ascites_NoShunts.mmHg/ascites_NoShunts.Qnom))),
-
+                  displayUnit="(mmHg.min)/l") = 199983581.1225)),
           ascites_ShuntsAndTIPPS(realExpression2(y=hagenPoiseulleConductance.hydraulicconductance),
               TIPSS(useConductanceInput=true)));
 
         Components.HagenPoiseulleConductance hagenPoiseulleConductance(
-          d_nominal(displayUnit="mm") = 0.009,
+          d_nominal(displayUnit="mm") = 0.0045,
+          mu=5e-3,
           L=0.08,
           useNominalDiameter=true,
           q_nominal=1.6666666666667e-06)
@@ -1119,17 +1220,19 @@ package Lymphatics
               {0,1.01,0.29},{3,1.88,0.218333},{10,2.7,0}}, Xscale=101325/760)
           "At filling pressure -0.0029mmHg (because external thorax pressure is -4mmHg) is normal cardiac output (effect=1)."
           annotation (Placement(transformation(extent={{16,22},{36,42}})));
+        replaceable
         Components.Ascites_Resistance ascites_Resistance(
-          TIPSS(enable=true, Resistance=Modelica.Constants.inf),
+          TIPSS(enable=true, Resistance=39996716.2245),
           Liver(
             enable=true,
             useConductanceInput=false,
-            Resistance(displayUnit="(mmHg.min)/l") = 119990148.6735),
+            Resistance(displayUnit="(mmHg.min)/l") = 199983581.1225),
           realExpression1(y=1),
           redeclare replaceable Components.ResistanceControlled IntestinesArt(
             Resistance(displayUnit="(mmHg.min)/l") = 639947459.592,
             Q_nominal(displayUnit="l/min") = 1.6666666666667e-05,
-            tau=1000000.0))
+            tau=500000.0),
+          useTIPPS=false) constrainedby Components.partialAscites
           annotation (Placement(transformation(extent={{-4,-84},{-24,-64}})));
         Modelica.Blocks.Sources.CombiTimeTable combiTimeTable(table=[0.0,8.3333333333333e-05;
               500,8.3333333333333e-05; 501,5.3333333333333e-05; 1000,5.3333333333333e-05;
@@ -1241,8 +1344,26 @@ package Lymphatics
         extends CardiovascularSystem_GCG_Asc_NoReg(
           rightStarling(enabled=false),
           leftStarling(enabled=false),
-          combiTimeTable(extrapolation=Modelica.Blocks.Types.Extrapolation.HoldLastPoint));
+          combiTimeTable(extrapolation=Modelica.Blocks.Types.Extrapolation.HoldLastPoint, table=[
+                0.0,8.3333333333333E-05; 500.0,8.3333333333333E-05; 501.0,6.66666E-05;
+                1000.0,6.66666E-05; 1001.0,8.3333333333333E-05]),
+          ascites_Resistance(
+            Liver(Resistance(displayUnit="(mmHg.min)/l") = 199984000.0)));
+        annotation (__Dymola_Commands(file="Reducing CO.mos" "Reducing CO"));
       end CardiovascularSystem_GCG_Asc_NoReg_NoCOreg;
+
+      model CardiovascularSystem_GCG_Asc_NoReg_NoCOreg_TIPSS
+        extends CardiovascularSystem_GCG_Asc_NoReg_NoCOreg(redeclare
+            Components.Ascites_Resistance_Shunts ascites_Resistance(
+            useTIPPS=true,
+            resistancePressureDep(
+              Comp(displayUnit="ml/mmHg") = 1.5001231516913e-07,
+              r0_nom(displayUnit="(mmHg.min)/l"),
+              P_nom=1466.546261565),
+            realExpression1(y=1),
+            Liver(useConductanceInput=false),
+            TIPSS(Resistance=39996716.2245)));
+      end CardiovascularSystem_GCG_Asc_NoReg_NoCOreg_TIPSS;
     end Experiments;
   end Hemodynamics;
 
