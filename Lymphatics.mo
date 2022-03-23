@@ -387,8 +387,7 @@ package Lymphatics
 <p>Marek Matejak, Charles University, Prague, Czech Republic </p>
 </html>",   info="<html>
 <p>This hydraulic conductance (resistance) element contains two connector sides. No hydraulic medium volume is changing in this element during simulation. That means that sum of flow in both connector sides is zero. The flow through element is determined by <b>Ohm&apos;s law</b>. It is used conductance (=1/resistance) because it could be numerical zero better then infinity in resistance. </p>
-</html>"),
-          Diagram(graphics={
+</html>"),Diagram(graphics={
               Ellipse(
                 extent={{38,28},{58,-28}},
                 lineColor={0,140,72},
@@ -621,6 +620,108 @@ package Lymphatics
           Left                     "Left (inflow) side",
           Central                                                "Central",
           Right                                                                   "Right (outflow)") "Side of a resistance";
+      model LiverPortalVeinTree
+        extends Physiolibrary.Hydraulic.Interfaces.partialOnePort;
+        Physiolibrary.Hydraulic.Components.Resistor portalTrunk(Resistance(
+              displayUnit="(mmHg.min)/l") = 799934.32449)
+          annotation (Placement(transformation(extent={{-80,-10},{-60,10}})));
+        Physiolibrary.Hydraulic.Components.Resistor leftPortalVein(Resistance(
+              displayUnit="(mmHg.min)/l") = 799934.32449)
+          annotation (Placement(transformation(extent={{-38,-70},{-18,-50}})));
+        Physiolibrary.Hydraulic.Components.Resistor leftLateral(
+            useConductanceInput=true,                           Resistance=0.17
+              *R_tot)
+          annotation (Placement(transformation(extent={{2,-50},{22,-30}})));
+        Physiolibrary.Hydraulic.Components.Resistor leftMedial(
+            useConductanceInput=true,                          Resistance=0.14*
+              R_tot)
+          annotation (Placement(transformation(extent={{2,-84},{22,-64}})));
+        Physiolibrary.Hydraulic.Components.Resistor rightPosterior(
+            useConductanceInput=true,                              Resistance=
+              0.3*R_tot)
+          annotation (Placement(transformation(extent={{2,20},{22,40}})));
+        Physiolibrary.Hydraulic.Components.Resistor rightAnterior(
+            useConductanceInput=true,                             Resistance=
+              0.37*R_tot)
+          annotation (Placement(transformation(extent={{2,-10},{22,10}})));
+        parameter Physiolibrary.Types.HydraulicResistance R_tot=0
+          "Total liver resistance";
+        Modelica.Blocks.Math.Gain gain(k=1/0.3)
+          annotation (Placement(transformation(extent={{48,26},{28,46}})));
+        Modelica.Blocks.Math.Gain gain1(k=1/0.37)
+          annotation (Placement(transformation(extent={{48,-4},{28,16}})));
+        Modelica.Blocks.Math.Gain gain2(k=1/0.17)
+          annotation (Placement(transformation(extent={{48,-42},{28,-22}})));
+        Modelica.Blocks.Math.Gain gain3(k=1/0.14)
+          annotation (Placement(transformation(extent={{48,-78},{28,-58}})));
+        Physiolibrary.Types.RealIO.HydraulicConductanceInput
+                                               cond(start=Conductance)=c if useConductanceInput
+                                                         annotation (Placement(
+              transformation(extent={{-20,-20},{20,20}},
+              rotation=270,
+              origin={2,60})));
+      equation
+        connect(q_in, portalTrunk.q_in) annotation (Line(
+            points={{-100,0},{-80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(leftPortalVein.q_out, leftLateral.q_in) annotation (Line(
+            points={{-18,-60},{-4,-60},{-4,-40},{2,-40}},
+            color={0,0,0},
+            thickness=1));
+        connect(leftPortalVein.q_out, leftMedial.q_in) annotation (Line(
+            points={{-18,-60},{-4,-60},{-4,-74},{2,-74}},
+            color={0,0,0},
+            thickness=1));
+        connect(portalTrunk.q_out, rightAnterior.q_in) annotation (Line(
+            points={{-60,0},{2,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(portalTrunk.q_out, rightPosterior.q_in) annotation (Line(
+            points={{-60,0},{-52,0},{-52,30},{2,30}},
+            color={0,0,0},
+            thickness=1));
+        connect(leftPortalVein.q_in, rightAnterior.q_in) annotation (Line(
+            points={{-38,-60},{-52,-60},{-52,0},{2,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(leftLateral.q_out, q_out) annotation (Line(
+            points={{22,-40},{56,-40},{56,0},{62,0},{62,1.77636e-15},{100,
+                1.77636e-15}},
+            color={0,0,0},
+            thickness=1));
+        connect(leftMedial.q_out, q_out) annotation (Line(
+            points={{22,-74},{56,-74},{56,0},{62,0},{62,1.77636e-15},{100,
+                1.77636e-15}},
+            color={0,0,0},
+            thickness=1));
+        connect(rightPosterior.q_out, q_out) annotation (Line(
+            points={{22,30},{56,30},{56,1.77636e-15},{100,1.77636e-15}},
+            color={0,0,0},
+            thickness=1));
+        connect(rightAnterior.q_out, q_out) annotation (Line(
+            points={{22,0},{100,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(gain.y, rightPosterior.cond)
+          annotation (Line(points={{27,36},{12,36}}, color={0,0,127}));
+        connect(gain1.y, rightAnterior.cond)
+          annotation (Line(points={{27,6},{12,6}}, color={0,0,127}));
+        connect(gain2.y, leftLateral.cond) annotation (Line(points={{27,-32},{
+                27,-34},{12,-34}}, color={0,0,127}));
+        connect(gain3.y, leftMedial.cond)
+          annotation (Line(points={{27,-68},{12,-68}}, color={0,0,127}));
+        connect(gain.u, cond) annotation (Line(points={{50,36},{54,36},{54,60},
+                {2,60}}, color={0,0,127}));
+        connect(gain1.u, cond) annotation (Line(points={{50,6},{66,6},{66,60},{
+                2,60}}, color={0,0,127}));
+        connect(gain2.u, cond) annotation (Line(points={{50,-32},{58,-32},{58,
+                -34},{66,-34},{66,60},{2,60}}, color={0,0,127}));
+        connect(gain3.u, cond) annotation (Line(points={{50,-68},{66,-68},{66,
+                60},{2,60}}, color={0,0,127}));
+        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+              coordinateSystem(preserveAspectRatio=false)));
+      end LiverPortalVeinTree;
     end Components;
 
     package Tests
@@ -1052,8 +1153,8 @@ package Lymphatics
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
             SolutionFlow(displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
-        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")
-          =1.6666666666667e-05   "Splanchnic perfusion";
+        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=
+           1.6666666666667e-05   "Splanchnic perfusion";
         parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
             displayUnit="ml/mmHg")=1.50012e-07;
         parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=
