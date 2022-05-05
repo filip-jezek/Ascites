@@ -1,53 +1,438 @@
 within ;
 package Lymphatics
 
-  package OncoticPressures
-    model OncoticPressureToConc
-      parameter Modelica.Units.SI.Temperature T = 310;
-      parameter Real Wp(unit = "g/mol") = 65e3 "Weight of protein, kg/mol";
-      Physiolibrary.Types.Pressure Ponc = 0 annotation (Dialog(group="Time varying output signal"));
-      Physiolibrary.Types.Concentration c;
-      Real conc_gdl(unit = "g/dl") = c*Wp*1e-3/10;
+  package AscitesLevitt "Ascites model by Levitt and Levitt"
+    package OncoticPressuresConversion
+      model OncoticPressureToConc
+        parameter Modelica.Units.SI.Temperature T = 310;
+        parameter Real Wp(unit = "g/mol") = 65e3 "Weight of protein, kg/mol";
+        Physiolibrary.Types.Pressure Ponc = 0 annotation (Dialog(group="Time varying output signal"));
+        Physiolibrary.Types.Concentration c;
+        Real conc_gdl(unit = "g/dl") = c*Wp*1e-3/10;
 
+      equation
+        Ponc = c*Modelica.Constants.R*T;
+
+        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+              coordinateSystem(preserveAspectRatio=false)));
+      end OncoticPressureToConc;
+
+      model POnc2Conc "Calculation acc to Nitta 1981, PMID 7324049, for 37C and pH of 7.4"
+        parameter Boolean inputIsPressure=false
+                                               "use inputValue as oncotic pressure or as alb conc [g/dl] otherwise"
+          annotation (checkbox=true);
+          Real inputValue=time "Pressure [Pa] if inputIsPresure, alb conc [g/dl] otherwise" annotation (Dialog(tab="General", group="Inputs"));
+              Real alpha = AGf*beta;
+              Real beta = 1-alpha;
+              parameter Real AGf=4/3   "Albumin to globulin fraction";
+        Real c;
+        Real c_alb = c*alpha;
+        Real c_glb = c*beta;
+        Physiolibrary.Types.Pressure Pi "Oncotic pressure";
+              parameter Physiolibrary.Types.Pressure mmHg=133.322387415;
+      equation
+        if inputIsPressure then
+          inputValue = Pi;
+        else
+          inputValue = c_alb;
+        end if;
+
+        // This surprisingly does not fit exactly their calculated values. Maybe they also applied conversion for pH and or temp?
+        Pi/mmHg = alpha*(2.8*c + 0.18*c^2 + 0.012*c^3) + beta*(0.9^c + 0.12*c^2 + 0.004
+          *c^3);
+
+        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+              coordinateSystem(preserveAspectRatio=false)),
+          experiment(
+            StartTime=1,
+            StopTime=10,
+            __Dymola_Algorithm="Dassl"));
+      end POnc2Conc;
+    end OncoticPressuresConversion;
+
+    model LevittCase1Ss
+      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
+    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+    //  Real Ji, Aa, Vmin;
+
+    parameter Real Pra=5   annotation(Evaluate = false);//right atrial pressure
+    parameter Real Pamin =   2;//minimum ascites pressure when Jlymph = 0
+    parameter Real Ap = 25; //Blood colloid osmotic pressure
+    parameter Real m =  0.8;
+    parameter Real Pmin = 2.0;//must be less than Pra
+    parameter Real Pdel = 2.0 annotation(Evaluate=false);
+    parameter Real Pbreak = 8;
+    parameter Real Ly =  0.131; //ml/min/mm Hg
+    parameter Real Ll =  0.172; //
+    parameter Real Lt =  0.104;
+    parameter Real D =  0.8; //New  - value of Henriksen and Lieberman
+    parameter Real Vmin =  0.1;  //minimum volume when P = Pamin
+
+    Real Phv;
+    Real Pp;
+    Real Pc;
+    Real Pl;
+    Real Jl;
+    Real Ji;
+    Real Jy;
+
+    Real Pa, Aa;
+    Real Pgrad = time annotation (Dialog(tab="General", group="Inputs"));
+
+    Real Av = Vmin+D*(Pa-Pamin);
     equation
-      Ponc = c*Modelica.Constants.R*T;
 
-      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-            coordinateSystem(preserveAspectRatio=false)));
-    end OncoticPressureToConc;
+      //First condition, Pa&lt;Pra+Pdel;
+      if Pa < Pra + Pdel then
+        Phv = Pra+Pdel;
+        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
 
-    model POnc2Conc "Calculation acc to Nitta 1981, PMID 7324049, for 37C and pH of 7.4"
-      parameter Boolean inputIsPressure=false
-                                             "use inputValue as oncotic pressure or as alb conc [g/dl] otherwise"
-        annotation (checkbox=true);
-        Real inputValue=time "Pressure [Pa] if inputIsPresure, alb conc [g/dl] otherwise" annotation (Dialog(tab="General", group="Inputs"));
-            Real alpha = AGf*beta;
-            Real beta = 1-alpha;
-            parameter Real AGf=4/3   "Albumin to globulin fraction";
-      Real c;
-      Real c_alb = c*alpha;
-      Real c_glb = c*beta;
-      Physiolibrary.Types.Pressure Pi "Oncotic pressure";
-            parameter Physiolibrary.Types.Pressure mmHg=133.322387415;
-    equation
-      if inputIsPressure then
-        inputValue = Pi;
       else
-        inputValue = c_alb;
-      end if;
+        Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
+        Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
 
-      // This surprisingly does not fit exactly their calculated values. Maybe they also applied conversion for pH and or temp?
-      Pi/mmHg = alpha*(2.8*c + 0.18*c^2 + 0.012*c^3) + beta*(0.9^c + 0.12*c^2 + 0.004
-        *c^3);
+      end if;
+    //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
+    Pp = Phv+Pgrad;
+    Pc = Pp+3;//intestinal capillary pressure
+    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
+
+    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
+    Jy=Jl+Ji;//fluid balance, //Aa =
+    //else
+        //Second condition, Pa&gt;Pra+Pdel;
+
+    // Pp = Phv+Pgrad;
+    // Pc = Pp+3;//intestinal capillary pressure
+    // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+    // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+    // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
+    //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+    // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
+    // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
+    // solutions2 = solve({eq1,eq2},{Pa,Aa});
+
+      annotation (experiment(
+          StartTime=6,
+          StopTime=25,
+          __Dymola_NumberOfIntervals=5000,
+          Tolerance=1e-05,
+          __Dymola_Algorithm="Dassl"));
+    end LevittCase1Ss;
+
+    model LevittCase1SsSI
+      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code. With SI units."
+    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+    //  Real Ji, Aa, Vmin;
+    constant Real mmHg = 133.322;
+
+    parameter Physiolibrary.Types.Pressure  Pra(displayUnit="mmHg")=266.64477483 "right atrial pressure"
+                                                   annotation(Evaluate = false);
+    parameter Physiolibrary.Types.Pressure Pamin=266.64477483 "minimum ascites pressure when Jlymph = 0";
+    parameter Physiolibrary.Types.Pressure Ap(displayUnit="mmHg")=3333.059685375 "Blood colloid osmotic pressure";
+    parameter Real m =  0.8;
+    parameter Physiolibrary.Types.Pressure Pmin(displayUnit="mmHg")=266.64477483 "Minmal ascites pressure. Must be less than Pra";
+    parameter Physiolibrary.Types.Pressure Pdel(displayUnit="mmHg")=266.64477483 "Hepatic vein pressure drop. Assumed same as Pmin"
+                                                      annotation(Evaluate=false);
+    parameter Physiolibrary.Types.Pressure Pbreak(displayUnit="mmHg")=1066.57909932;
+    parameter Physiolibrary.Types.HydraulicConductance Ly(displayUnit="ml/(mmHg.min)")=
+         1.6376344405963e-11;                                       //ml/min/mm Hg
+    parameter Physiolibrary.Types.HydraulicConductance Ll(displayUnit="ml/(mmHg.min)")=
+         2.1501765174242e-11;                                       //
+    parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit="ml/(mmHg.min)")=
+         1.3001067314658e-11;
+    parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=6.0004926067653e-06;
+                                                                //New  - value of Henriksen and Lieberman. 0.8 L/mmHg
+    parameter Physiolibrary.Types.Volume Vmin(displayUnit="l")=0.0001;
+                                                       //minimum volume when P = Pamin
+
+    parameter Physiolibrary.Types.Pressure PcGrad=399.967162245
+                                                      "Gradient from portal to intestinal capillary pressure";
+    Physiolibrary.Types.Pressure Phv "Hepatic vein pressure";
+    Physiolibrary.Types.Pressure Pp "Portal vein pressure";
+    Physiolibrary.Types.Pressure Pc "Intestinal capillary pressure";
+    Physiolibrary.Types.Pressure Pl "Liver sinus pressure";
+    Physiolibrary.Types.VolumeFlowRate Jl;
+    Physiolibrary.Types.VolumeFlowRate Ji;
+    Physiolibrary.Types.VolumeFlowRate Jy;
+
+    Physiolibrary.Types.Pressure Pa;
+    Physiolibrary.Types.Pressure Aa;
+    Physiolibrary.Types.Pressure Pgrad = time*mmHg annotation (Dialog(tab="General", group="Inputs"));
+
+    Physiolibrary.Types.Volume Av = Vmin+D*(Pa-Pamin);
+    equation
+
+      //First condition, Pa&lt;Pra+Pdel;
+      if Pa < Pra + Pdel then
+        Phv = Pra+Pdel;
+        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
+
+      else
+        Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
+        Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+
+      end if;
+    //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
+    Pp = Phv+Pgrad;
+    Pc = Pp+PcGrad;//intestinal capillary pressure
+    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
+
+    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
+    Jy=Jl+Ji;//fluid balance, //Aa =
+    //else
+        //Second condition, Pa&gt;Pra+Pdel;
+
+    // Pp = Phv+Pgrad;
+    // Pc = Pp+3;//intestinal capillary pressure
+    // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+    // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+    // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
+    //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
+    // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
+    // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
+    // solutions2 = solve({eq1,eq2},{Pa,Aa});
+
+      annotation (experiment(
+          StartTime=-5,
+          StopTime=25,
+          __Dymola_NumberOfIntervals=5000,
+          Tolerance=1e-05,
+          __Dymola_Algorithm="Dassl"));
+    end LevittCase1SsSI;
+
+    model LevittCase1SsSiIo
+      "Model of static ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code into SI units with IO ports."
+    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
+    //  Real Ji, Aa, Vmin;
+    constant Real mmHg = 133.322;
+
+    // parameter Physiolibrary.Types.Pressure  Pra(displayUnit="mmHg")=266.64477483 "right atrial pressure"
+    //                                                annotation(Evaluate = false);
+    parameter Physiolibrary.Types.Pressure Pamin=266.64477483 "minimum ascites pressure when Jlymph = 0";
+    parameter Physiolibrary.Types.Pressure Ap(displayUnit="mmHg")=3333.059685375 "Blood colloid osmotic pressure";
+    parameter Real m =  0.8;
+    parameter Physiolibrary.Types.Pressure Pmin(displayUnit="mmHg")=266.64477483 "Minmal ascites pressure. Must be less than Pra";
+    // parameter Physiolibrary.Types.Pressure Pdel(displayUnit="mmHg")=266.64477483 "Hepatic vein pressure drop. Assumed same as Pmin"
+    //                                                   annotation(Evaluate=false);
+    parameter Physiolibrary.Types.Pressure Pbreak(displayUnit="mmHg")=1066.57909932;
+    parameter Physiolibrary.Types.HydraulicConductance Ly(displayUnit="ml/(mmHg.min)")=
+         1.6376344405963e-11;                                       //ml/min/mm Hg
+    parameter Physiolibrary.Types.HydraulicConductance Ll(displayUnit="ml/(mmHg.min)")=
+         2.1501765174242e-11;                                       //
+    parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit="ml/(mmHg.min)")=
+         1.3001067314658e-11;
+    parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=6.0004926067653e-06;
+                                                                //New  - value of Henriksen and Lieberman. 0.8 L/mmHg
+    parameter Physiolibrary.Types.Volume Vmin(displayUnit="l")=0.0001;
+                                                       //minimum volume when P = Pamin
+
+    // parameter Physiolibrary.Types.Pressure PcGrad=399.967162245
+    //                                                   "Gradient from portal to intestinal capillary pressure";
+    // Physiolibrary.Types.Pressure Phv "Hepatic vein pressure";
+    // Physiolibrary.Types.Pressure Pp "Portal vein pressure";
+    // Physiolibrary.Types.Pressure Pc "Intestinal capillary pressure";
+    Physiolibrary.Types.Pressure Pl "Liver sinus pressure";
+    Physiolibrary.Types.VolumeFlowRate Jl;
+    Physiolibrary.Types.VolumeFlowRate Ji;
+    Physiolibrary.Types.VolumeFlowRate Jy;
+
+    // Physiolibrary.Types.Pressure Pa;
+    Physiolibrary.Types.Pressure Aa;
+
+    Physiolibrary.Types.Volume Av = Vmin+ max(0, D*(Pa-Pamin));
+      Physiolibrary.Types.RealIO.PressureInput Pp "portal vein pressure input"
+         annotation (Placement(transformation(extent={{-120,-20},{-80,20}})));
+      Physiolibrary.Types.RealIO.PressureInput Pra "Right atrial pressure input"
+        annotation (Placement(transformation(extent={{80,-20},{120,20}})));
+      Physiolibrary.Types.RealIO.PressureOutput Pa "Ascites pressure output"
+        annotation (Placement(transformation(extent={{-20,-100},{20,-60}})));
+      Physiolibrary.Types.RealIO.PressureInput Phv "Hepatic vein pressure input"
+        annotation (Placement(transformation(extent={{-120,-100},{-80,-60}})));
+      Physiolibrary.Types.RealIO.PressureInput Pc "Intestinal capillary pressure"
+        annotation (Placement(transformation(extent={{-120,60},{-80,100}})));
+    equation
+
+        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
+    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
+    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
+    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
+
+    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
+    Jy=Jl+Ji;//fluid balance, //Aa =
+
+      annotation (experiment(
+          StartTime=6,
+          StopTime=25,
+          __Dymola_NumberOfIntervals=5000,
+          Tolerance=1e-05,
+          __Dymola_Algorithm="Dassl"));
+    end LevittCase1SsSiIo;
+
+    model LevitCase2Dynamics
+      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
+    parameter Boolean paracentesis = false;
+
+    //Independent variables
+    parameter Real dayconv =  24.0 "hours/day   - thus paramteters in units of 1/day";
+    parameter Real volconv = 0.001 "liter/ml";
+
+    //volconv = 1.0 "liter/ml";
+    parameter Real Ap = 25 "Plasma colloid osmoitc pressure";
+    parameter Real Po =  2.0 "minimum pressure in the pressure Pa vs Volume relation";
+    parameter Real Pvg = 2.0 "Hep[atic vein to CVP gradient";
+    parameter Real Pmin = Po "minimum pressure in the lymph flow equation (in paper - assume that = Po";
+    parameter Real Vmin =  0.1 "No lymph flow until ascitic volume ";
+    parameter Real Pbreak =  8.0 "pressure required to break liver lymphatics";
+    parameter Real D =  0.8 " Experimental Valuesml/mm Hg   Volume = Vmin+D*(Pa - Po),  in steady state  Vol = D*P";
+
+    //Adjustable paramters:  These are the same values used in Ascites_state_grad9 and in paper
+    parameter Real m = 0.8 "liver tissue protein = 80% of plasma";
+    parameter Real Lt = 6.25*dayconv*volconv "ml/hour/mm Hg for total conductance from paper";
+    parameter Real Lc = 2.0*Lt;
+    parameter Real Li = Lc "distribute intestinal resistance equally between capilary and mesothelium";
+    parameter Real Ll =   10.3*dayconv*volconv;
+    parameter Real Ly0 =  7.86*dayconv*volconv "ml/hour mm Hg  steady state value";
+
+    //parameters for intestinal tissue
+    parameter Real Vimin = 100*volconv " = 100 ml = int. volume where Pi = Pa (i.e. 0 presssure gradient";
+    parameter Real Vimin2 = 50*volconv " have constant negative pressure for Vi <Vimin2";
+    parameter Real Di =  (0.75/100)/volconv "mm/ml Hg  P = Di*Vi  NOTE: units are the inverse of D - this corresponds to 0.75 mm Hg pressure increase for doubling of volume from 100 to 200 ml";
+    parameter Real Lyi =  18*dayconv*volconv "int. tissue lymph flow - about twice the conductance of the peritoneal space";
+    //Real Vi0 = 110*volconv "initial intestinal volume";
+    parameter Real Perm =  2.0*volconv "capillary protein permeability";
+
+    parameter Modelica.Units.SI.Time t_e =  30 "event time";
+    parameter Real Pgrad1 = 16, Pgrad2 = 12.8;
+    parameter Real Pra1 = 5,Pra2 = 2;
+
+    Real Pgrad = if time < t_e then Pgrad1 else Pgrad2;
+    Real Pra = if time < t_e then Pra1 else Pra2;
+    Real Ly = if paracentesis and time > t_e and time < t_e + 0.5 then Ly0*50 else Ly0 "At Pgrad = 20.0 and Pra = 5.0;";
+
+    //Initial condtions:
+    parameter Real V0 = Vmin "initial ascites volume";
+    // Real Pp = Phv+4 "Cannot use Phv+Pgrad1 because this make Ai <0 because of low Pa";
+    parameter Real Vi0 =  Vimin "Initial intestine volume follow from Pi = Pa";
+    //Real Ai = Ap+Pi-Pc "equilibrium across capillary";
+    Real Amti0 = Ai*Vi0 "initial intestine amount - Ai*VI0";
+    Real Amt0 = Aa*V0 "initial ascite amount";
+
+    // ODEs
+    Real Va(start = V0);
+    Real Amt(start = Amt0);
+    Real Vi(start = Vi0);
+    Real Amti(start = Amti0);
+
+    // Simple parameter relations (algebraic, not requiring diff. eq.
+    Real Pp(start = Phv+4) = Phv+Pgrad "portal vein pressure";
+    Real Pl = (Pp + Phv)/2.0 "liver tissue pressure = average sinusoidal pressure";
+
+    Real Pa( start = Pmin) = if Va<=Vmin then Po else Po+(Va-Vmin)/D "linear,  see older version for quadratic";
+    // Real Phv(start = Pra1+3) = if Pra+Pvg >Pa then Pra+Pvg else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+    Real Phv(start = Pra1+3) = max(Pra+Pvg, Pa) "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+    Real Pc = Pp+3 "Intestinal capillary pressure";
+    Real Pi(start = Pa) = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
+
+    Real Aa(start = Ai) = if Amt<=0 then 0.001 else Amt/Va "ascites protein conc.";
+    Real Ai( start = Ap+Pi-Pc) =  if Amti<=0 then 0.001 else Amti/Vi "int. tissue protein conc.";
+
+    Real Ji =   Li*(Aa - Ai+Pi-Pa) "volume flow across intestinal mesotheium into ascites";
+    Real Jl =  if (Pl-Pa)<Pbreak then 0 else Ll*(Pl-Pa-Pbreak) "volume flow from liver";
+    Real Jy = if Pa<=Po then 0 else Ly*(Pmin+Pa-Pra) "0 if Va<0, Pmin pressure if Pa<Pra,else Pmin+Pa-Pra";
+
+    Real Jla = m*Ap*Jl "albumin flow from liver";
+    Real Jya = Aa*Jy " peritoneal lymph protrein removal rate (Aa = ascites protein)";
+
+    //New relations for intestinal tissue compartment
+    Real Jc =  Lc*(Pc - Pi+ Ai -Ap) "capillary water flow";
+    Real Jyi = if (Pi-Pa)<0 then 0 else Lyi*(Pi-Pa) "For some reason, this integrates rapidly gives reasonable results";
+    Real JcA = Perm*(Ap - Ai) "New -add a capillary protein permeabilit to balance int. lymph flow protein";
+
+    equation
+    //Differential equations:
+    der(Va) = Ji+Jl-Jy;
+    der(Amt)=Jla-Jya;
+    der(Vi)=Jc-Jyi-Ji;
+    der(Amti)= JcA  -Jyi*Ai;
 
       annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
             coordinateSystem(preserveAspectRatio=false)),
         experiment(
-          StartTime=1,
-          StopTime=10,
+          StopTime=60,
+          __Dymola_NumberOfIntervals=5000,
+          Tolerance=1e-05,
           __Dymola_Algorithm="Dassl"));
-    end POnc2Conc;
-  end OncoticPressures;
+    end LevitCase2Dynamics;
+
+    model LD_concs
+      import Lymphatics;
+      import Lymphatics;
+      import Lymphatics;
+      extends AscitesLevitt.LevitCase2Dynamics(
+        Ap=22.0,
+        Pgrad2=5.0,
+        Pvg=0.0);
+      constant Physiolibrary.Types.Pressure mmHg=133.322387415;
+      Lymphatics.AscitesLevitt.OncoticPressuresConversion.POnc2Conc pOnc2Conc(
+        inputIsPressure=false,
+        inputValue=4,
+        AGf=4/3)
+        annotation (Placement(transformation(extent={{-40,-20},{-20,0}})));
+      Lymphatics.AscitesLevitt.OncoticPressuresConversion.POnc2Conc
+        protein_asictes(
+        inputIsPressure=true,
+        inputValue=Aa,
+        AGf=4/3) annotation (Placement(transformation(extent={{0,-20},{20,0}})));
+      Lymphatics.AscitesLevitt.OncoticPressuresConversion.POnc2Conc
+        protein_intes(
+        inputIsPressure=true,
+        inputValue=Ai,
+        AGf=4/3)
+        annotation (Placement(transformation(extent={{40,-20},{60,0}})));
+    end LD_concs;
+
+    model LSS_concs
+      import Lymphatics;
+      import Lymphatics;
+      extends Lymphatics.AscitesLevitt.LevittCase1Ss;
+      Lymphatics.AscitesLevitt.OncoticPressuresConversion.POnc2Conc
+        protein_plasma(inputIsPressure=true, inputValue=Ap)
+        annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
+      Lymphatics.AscitesLevitt.OncoticPressuresConversion.POnc2Conc protein_asc(
+          inputIsPressure=true, inputValue=Aa)
+        annotation (Placement(transformation(extent={{-20,20},{0,40}})));
+    end LSS_concs;
+
+    package Test
+      extends Modelica.Icons.ExamplesPackage;
+      model Healthy
+        extends Modelica.Icons.Example;
+        extends AscitesLevitt.LD_concs(
+                         Vmin=0.01);
+      end Healthy;
+
+      model PortalHT
+        extends Healthy( Pgrad2=10);
+      end PortalHT;
+
+      model Nephrotic
+        extends Healthy(Ap=3.6, pOnc2Conc(inputValue=1));
+      end Nephrotic;
+
+      model Cirrhosis
+        extends Healthy(Pgrad2=20, pOnc2Conc(inputValue=2));
+      end Cirrhosis;
+    end Test;
+
+  end AscitesLevitt;
 
   package Hemodynamics
     model Kofranek2014
@@ -62,10 +447,10 @@ package Lymphatics
           1.3001067314658e-09)
         annotation (Placement(transformation(extent={{-4,-94},{16,-74}})));
       Components.Ascites_Resistance ascites_Resistance(
+        liverConductance(y=1/(max(time/200, 5)*ascites_Resistance.mmHg/
+              ascites_Resistance.Qnom)),
         TIPSS(enable=true, Resistance=Modelica.Constants.inf),
-        Liver(enable=true, useConductanceInput=true),
-        realExpression1(y=1/(max(time/200, 5)*ascites_Resistance.mmHg/
-              ascites_Resistance.Qnom)))
+        Liver(enable=true, useConductanceInput=true))
         annotation (Placement(transformation(extent={{16,-154},{-4,-134}})));
       ADAN_main.Components.Subsystems.Systemic.Organs.Renal.Renal_P_Int_i
         renal_P_Int_i(halving=1)
@@ -129,10 +514,10 @@ package Lymphatics
       extends Physiolibrary.Hydraulic.Examples.CardiovascularSystem_GCG(
           nonMuscle(Conductance(displayUnit="m3/(Pa.s)") = 2.6e-9));
       Components.Ascites_Resistance ascites_Resistance(
+        liverConductance(y=1/(max(time/100, 5)*ascites_Resistance.mmHg/
+              ascites_Resistance.Qnom)),
         TIPSS(enable=true, Resistance=Modelica.Constants.inf),
-        Liver(enable=true, useConductanceInput=true),
-        realExpression1(y=1/(max(time/100, 5)*ascites_Resistance.mmHg/
-              ascites_Resistance.Qnom)))
+        Liver(enable=true, useConductanceInput=true))
         annotation (Placement(transformation(extent={{-4,-86},{-24,-66}})));
     equation
       connect(ascites_Resistance.q_in, arteries.q_in) annotation (Line(
@@ -229,7 +614,7 @@ package Lymphatics
             __Dymola_Algorithm="Dassl"));
       end partialAscites;
 
-      model Ascites_Resistance
+      model Ascites_Resistance "Levitt's model with resistances instead of fied pressure differences"
         extends partialAscites(
           redeclare replaceable Physiolibrary.Hydraulic.Components.Resistor Liver(
               useConductanceInput=true, Resistance=6*mmHg/Qnom),
@@ -237,8 +622,9 @@ package Lymphatics
               Resistance=84*mmHg/Qnom),
           redeclare replaceable Physiolibrary.Hydraulic.Components.Resistor IntestineVenule(
               Resistance=3*mmHg/Qnom));
-        Modelica.Blocks.Sources.RealExpression realExpression1(y=1/(time*mmHg/Qnom))
-          annotation (Placement(transformation(extent={{-30,18},{-10,38}})));
+        Modelica.Blocks.Sources.RealExpression liverConductance(y=1/(time*mmHg/
+              Qnom))
+          annotation (Placement(transformation(extent={{-40,4},{-20,24}})));
 
         parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(5000*
             0.2) "Nominal flow through the splanchnic circulation";
@@ -248,7 +634,7 @@ package Lymphatics
             Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5))
           if useTIPPS
           constrainedby Physiolibrary.Hydraulic.Interfaces.OnePort
-          annotation (Placement(transformation(extent={{-2,-44},{18,-24}})));
+          annotation (Placement(transformation(extent={{0,-44},{20,-24}})));
         Physiolibrary.Hydraulic.Interfaces.HydraulicPort_a
                              q_in "Volume inflow" annotation (Placement(
               transformation(extent={{-114,-14},{-86,14}})));
@@ -257,8 +643,8 @@ package Lymphatics
                                annotation (Placement(
               transformation(extent={{86,-14},{114,14}})));
         parameter Boolean useTIPPS=false;
-        Modelica.Blocks.Sources.RealExpression realExpression2(y=0)
-          annotation (Placement(transformation(extent={{-38,-34},{-18,-14}})));
+        Modelica.Blocks.Sources.RealExpression tipssConductance(y=0)
+          annotation (Placement(transformation(extent={{-40,-34},{-20,-14}})));
 
         output Physiolibrary.Types.Pressure PPV = Liver.q_in.pressure "Portal vein pressure";
         output Physiolibrary.Types.Pressure HVPG = Liver.dp "Hepatic venous pressure gradient";
@@ -267,14 +653,14 @@ package Lymphatics
         output Physiolibrary.Types.VolumeFlowRate Q_liver = Liver.q_in.q;
 
       equation
-        connect(Liver.cond, realExpression1.y) annotation (Line(points={{10,6},{10,14},
-                {-2,14},{-2,28},{-9,28}},  color={0,0,127}));
+        connect(Liver.cond, liverConductance.y)
+          annotation (Line(points={{10,6},{10,14},{-19,14}}, color={0,0,127}));
         connect(TIPSS.q_in, IntestineVenule.q_out) annotation (Line(
-            points={{-2,-34},{-14,-34},{-14,0},{-20,0}},
+            points={{0,-34},{-14,-34},{-14,0},{-20,0}},
             color={0,0,0},
             thickness=1));
         connect(TIPSS.q_out, HV.q_in) annotation (Line(
-            points={{18,-34},{24,-34},{24,0},{52,0}},
+            points={{20,-34},{24,-34},{24,0},{52,0}},
             color={0,0,0},
             thickness=1));
         connect(HV.q_out, q_out) annotation (Line(
@@ -285,8 +671,8 @@ package Lymphatics
             points={{-100,0},{-80,0}},
             color={0,0,0},
             thickness=1));
-        connect(realExpression2.y, TIPSS.cond) annotation (Line(points={{-17,-24},{-4,
-                -24},{-4,-22},{8,-22},{8,-28}}, color={0,0,127}));
+        connect(tipssConductance.y, TIPSS.cond) annotation (Line(points={{-19,
+                -24},{10,-24},{10,-28}}, color={0,0,127}));
         annotation (Documentation(info="<html>
 <p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
 </html>"));
@@ -298,9 +684,9 @@ package Lymphatics
           Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
           r0_nom(displayUnit="(mmHg.min)/ml") = 7999343244.9,
           P_nom=1199.901486735,
-          side=Lymphatics.Hemodynamics.Components.Side.Central,
+          side=Lymphatics.Hemodynamics.Components.SideEnum.Central,
           useExternalCollapsingPressure=true)
-          annotation (Placement(transformation(extent={{-4,-72},{16,-52}})));
+          annotation (Placement(transformation(extent={{0,-72},{20,-52}})));
         output Physiolibrary.Types.VolumeFlowRate Q_shunt=shunt.q_in.q;
 
         Integer phase(start=1);
@@ -321,16 +707,16 @@ package Lymphatics
 
 
         connect(shunt.q_in, IntestineVenule.q_out) annotation (Line(
-            points={{-4,-62},{-14,-62},{-14,0},{-20,0}},
+            points={{0,-62},{-14,-62},{-14,0},{-20,0}},
             color={0,0,0},
             thickness=1));
         connect(shunt.q_out, HV.q_in) annotation (Line(
-            points={{16,-62},{24,-62},{24,0},{28,0},{28,2.22045e-16},{52,
+            points={{20,-62},{24,-62},{24,0},{28,0},{28,2.22045e-16},{52,
                 2.22045e-16}},
             color={0,0,0},
             thickness=1));
-        connect(shunt.P_ext, levittCase1SsSiIo.Pa) annotation (Line(points={{-4,
-                -53},{52,-53},{52,16}}, color={0,0,127}));
+        connect(shunt.P_ext, levittCase1SsSiIo.Pa) annotation (Line(points={{0,-53},
+                {52,-53},{52,16}},      color={0,0,127}));
       end Ascites_Resistance_Shunts;
 
       model ResistancePressureDep
@@ -360,7 +746,8 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure P_nom=1333.22387415
                                                      "Nominal end-point pressure";
 
-        parameter Side side=Lymphatics.Hemodynamics.Components.Side.Central "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
+        parameter SideEnum side=Lymphatics.Hemodynamics.Components.SideEnum.Central
+          "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
         Physiolibrary.Types.Pressure P_inner;
 
         Physiolibrary.Types.RealIO.PressureInput P_ext=p_abd   if useExternalCollapsingPressure "ExternalPressure"
@@ -382,9 +769,9 @@ package Lymphatics
 
         V =Comp*P_transm;
 
-        if side == Side.Left then
+        if side == SideEnum.Left then
           P_inner = q_in.pressure;
-        elseif side == Side.Central then
+        elseif side == SideEnum.Central then
           P_inner = (q_in.pressure + q_out.pressure)/2;
         else // side == Side.Right then
           P_inner = q_out.pressure;
@@ -511,46 +898,11 @@ package Lymphatics
                 textString="Higher midpoint pressure")}));
       end ResistancePressureDep;
 
-      model StarlingCurve
-        Physiolibrary.Blocks.Factors.Spline
-                                    rightStarling(data={{-6,0,0},{-3,0.15,0.104},{-1,0.52,
-              0.48},{2,1.96,0.48},{4,2.42,0.123},{8,2.7,0}}, Xscale=101325/760)
-          "At filling pressure 0mmHg (because external thorax pressure is -4mmHg) is normal cardiac output (effect=1)."
-          annotation (Placement(transformation(extent={{-50,-6},{-30,14}})));
-        Physiolibrary.Blocks.Factors.Spline
-                                    leftStarling(data={{-4,0,0},{-1,0.72,0.29},{0,1.01,
-              0.29},{3,1.88,0.218333},{10,2.7,0}}, Xscale=101325/760)
-          "At filling pressure -0.0029mmHg (because external thorax pressure is -4mmHg) is normal cardiac output (effect=1)."
-          annotation (Placement(transformation(extent={{-50,20},{-30,40}})));
-        Physiolibrary.Types.Constants.VolumeFlowRateConst volumeFlowRate(k(
-              displayUnit="l/min") = 8.3333333333333e-05)
-          annotation (Placement(transformation(extent={{-66,60},{-58,68}})));
-        Modelica.Blocks.Sources.RealExpression realExpression(y=time*mmHg)
-          annotation (Placement(transformation(extent={{-100,20},{-80,40}})));
-        constant Real mmHg=133.322;
-
-      Physiolibrary.Types.Pressure preload = realExpression.y + p_th;
-      parameter Physiolibrary.Types.Pressure p_th=533.28954966
-                                                      "Thoracic cavity pressure";
-      Physiolibrary.Types.VolumeFlowRate CO_LV = leftStarling.y;
-      Physiolibrary.Types.VolumeFlowRate CO_RV = rightStarling.y;
-      equation
-        connect(realExpression.y, leftStarling.u)
-          annotation (Line(points={{-79,30},{-48,30}}, color={0,0,127}));
-        connect(realExpression.y, rightStarling.u) annotation (Line(points={{-79,30},{
-                -70,30},{-70,4},{-48,4}}, color={0,0,127}));
-        connect(volumeFlowRate.y, leftStarling.yBase)
-          annotation (Line(points={{-57,64},{-40,64},{-40,32}}, color={0,0,127}));
-        connect(volumeFlowRate.y, rightStarling.yBase)
-          annotation (Line(points={{-57,64},{-40,64},{-40,6}}, color={0,0,127}));
-        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)),
-          experiment(
-            StartTime=-5,
-            StopTime=25,
-            __Dymola_Algorithm="Dassl"));
-      end StarlingCurve;
-
+      type SideEnum = enumeration(
+          Left                     "Left (inflow) side",
+          Central                                                "Central",
+          Right                                                                   "Right (outflow)")
+        "Side of a resistance";
       model SplanchnicCirculation
         Physiolibrary.Hydraulic.Components.Resistor splanchnic(Resistance=
               7999343244.900001*(93/500))
@@ -581,7 +933,7 @@ package Lymphatics
                 -40},{-80,0},{-60,0}}, color={0,0,0}));
       end SplanchnicCirculation;
 
-      model HagenPoiseulleConductance
+      model HagenPoiseulleConductance ""
         Physiolibrary.Types.RealIO.HydraulicConductanceOutput hydraulicconductance = 1/R
           annotation (Placement(transformation(extent={{92,-10},{112,10}})));
 
@@ -655,10 +1007,6 @@ package Lymphatics
               coordinateSystem(preserveAspectRatio=false)));
       end ResistanceControlled;
 
-      type Side = enumeration(
-          Left                     "Left (inflow) side",
-          Central                                                "Central",
-          Right                                                                   "Right (outflow)") "Side of a resistance";
       model LiverPortalVeinTree
         extends Physiolibrary.Hydraulic.Interfaces.partialOnePort;
         Physiolibrary.Hydraulic.Components.Resistor portalTrunk(Resistance(
@@ -788,7 +1136,8 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure P_nom=1333.22387415
                                                      "Nominal end-point pressure";
 
-        parameter Side side=Lymphatics.Hemodynamics.Components.Side.Central "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
+        parameter SideEnum side=Lymphatics.Hemodynamics.Components.SideEnum.Central
+          "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
         Physiolibrary.Types.Pressure P_inner;
         Physiolibrary.Hydraulic.Components.Resistor resistor
           annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
@@ -805,9 +1154,9 @@ package Lymphatics
 
         V =Comp*P_inner;
 
-        if side == Side.Left then
+        if side == SideEnum.Left then
           P_inner = q_in.pressure;
-        elseif side == Side.Central then
+        elseif side == SideEnum.Central then
           P_inner = (q_in.pressure + q_out.pressure)/2;
         else // side == Side.Right then
           P_inner = q_out.pressure;
@@ -995,7 +1344,7 @@ package Lymphatics
           Comp(displayUnit="l/mmHg") = 6.0004926067653e-06,
           r0_nom(displayUnit="(mmHg.min)/l") = 719940892.041,
           P_nom=666.611937075,
-          side=Lymphatics.Hemodynamics.Components.Side.Right)
+          side=Lymphatics.Hemodynamics.Components.SideEnum.Right)
           annotation (Placement(transformation(extent={{-10,-10},{10,10}})));
         Modelica.Blocks.Sources.RealExpression realExpression(y=max(time, 5)*
               133.322)
@@ -1179,13 +1528,13 @@ package Lymphatics
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{110,-12},{90,8}})));
         Components.Ascites_Resistance ascites_Resistance(
+          liverConductance(y=1),
           Qnom(displayUnit="l/min") = 1.6666666666667e-05,
           TIPSS(enable=true, Resistance=Modelica.Constants.inf),
           Liver(
             enable=true,
             useConductanceInput=false,
             Resistance(displayUnit="(mmHg.min)/l") = 119990148.6735),
-          realExpression1(y=1),
           redeclare Components.ResistanceControlled IntestinesArt(
             Resistance(displayUnit="(mmHg.min)/l") = 399967162.245,
             Q_nominal(displayUnit="l/min") = 1.6666666666667e-05,
@@ -1215,8 +1564,8 @@ package Lymphatics
       end ResistanceControlTest;
 
       model TestComplianceTube
-        Components.ComplianceTube complianceTube(l=0.2, r_n(displayUnit="mm")
-             = 0.003)
+        Components.ComplianceTube complianceTube(l=0.2, r_n(displayUnit="mm")=
+               0.003)
           annotation (Placement(transformation(extent={{-8,-10},{12,10}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump(SolutionFlow(
               displayUnit="ml/min")=1E-06)
@@ -1234,7 +1583,7 @@ package Lymphatics
           annotation (Placement(transformation(extent={{64,-40},{84,-20}})));
         Components.ResistancePressureDep resistancePressureDep(
           L=0.2,
-          side=Lymphatics.Hemodynamics.Components.Side.Left,
+          side=Lymphatics.Hemodynamics.Components.SideEnum.Left,
           Comp(displayUnit="ml/mmHg") = 7.50062E-09,
           r(start=0.001),
           r0_nom(displayUnit="(mmHg.min)/ml") = 7999340.0)
@@ -1613,8 +1962,8 @@ package Lymphatics
           annotation (Placement(transformation(extent={{-20,-110},{0,-90}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
-        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")
-          =1.6666666666667e-05   "Splanchnic perfusion";
+        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=
+           1.6666666666667e-05   "Splanchnic perfusion";
         parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
             displayUnit="ml/mmHg")=7.50062e-07;
         parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=
@@ -1717,11 +2066,14 @@ package Lymphatics
           ascites_TIPPS(
             Liver(useConductanceInput=true, Resistance=199983581122.5),
             TIPSS(useConductanceInput=true, Resistance=199983581.1225),
-            realExpression2(y=hagenPoiseulleConductance.hydraulicconductance)),
+            tipssConductance(
+                            y=hagenPoiseulleConductance.hydraulicconductance)),
           ascites_NoShunts(Liver(useConductanceInput=true, Resistance(
                   displayUnit="(mmHg.min)/l") = 199983581.1225)),
-          ascites_ShuntsAndTIPPS(realExpression2(y=hagenPoiseulleConductance.hydraulicconductance),
-              TIPSS(useConductanceInput=true)));
+          ascites_ShuntsAndTIPPS(
+              TIPSS(useConductanceInput=true),
+                                 tipssConductance(
+                                                 y=hagenPoiseulleConductance.hydraulicconductance)));
 
         Components.HagenPoiseulleConductance hagenPoiseulleConductance(
           d_nominal(displayUnit="mm") = 0.0045,
@@ -1813,14 +2165,13 @@ package Lymphatics
               {0,1.01,0.29},{3,1.88,0.218333},{10,2.7,0}}, Xscale=101325/760)
           "At filling pressure -0.0029mmHg (because external thorax pressure is -4mmHg) is normal cardiac output (effect=1)."
           annotation (Placement(transformation(extent={{16,22},{36,42}})));
-        replaceable
-        Components.Ascites_Resistance ascites_Resistance(
+        replaceable Components.Ascites_Resistance ascites_Resistance(
+          liverConductance(y=1),
           TIPSS(enable=true, Resistance=39996716.2245),
           Liver(
             enable=true,
             useConductanceInput=false,
             Resistance(displayUnit="(mmHg.min)/l") = 199983581.1225),
-          realExpression1(y=1),
           redeclare replaceable Components.ResistanceControlled IntestinesArt(
             Resistance(displayUnit="(mmHg.min)/l") = 639947459.592,
             Q_nominal(displayUnit="l/min") = 1.6666666666667e-05,
@@ -1949,13 +2300,14 @@ package Lymphatics
         extends CardiovascularSystem_GCG_Asc_NoReg_NoCOreg(redeclare
             Components.Ascites_Resistance_Shunts ascites_Resistance(
             useTIPPS=true,
-            realExpression1(y=1),
             Liver(useConductanceInput=false),
             TIPSS(Resistance=39996716.2245),
             shunt(
               Comp(displayUnit="ml/mmHg") = 1.5001231516913e-07,
               r0_nom(displayUnit="(mmHg.min)/l"),
-              P_nom=1466.546261565)));
+              P_nom=1466.546261565),
+            liverConductance(
+                            y=1)));
       end CardiovascularSystem_GCG_Asc_NoReg_NoCOreg_TIPSS;
 
       model HVPGCasesComparison
@@ -2071,464 +2423,6 @@ package Lymphatics
       end AscitesPhases;
     end Experiments;
   end Hemodynamics;
-
-  package AscitesLevitt "Ascites model by Levitt and Levitt"
-    model LevittCase1SS
-      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //  Real Ji, Aa, Vmin;
-
-    parameter Real Pra=5   annotation(Evaluate = false);//right atrial pressure
-    parameter Real Pamin =   2;//minimum ascites pressure when Jlymph = 0
-    parameter Real Ap = 25; //Blood colloid osmotic pressure
-    parameter Real m =  0.8;
-    parameter Real Pmin = 2.0;//must be less than Pra
-    parameter Real Pdel = 2.0 annotation(Evaluate=false);
-    parameter Real Pbreak = 8;
-    parameter Real Ly =  0.131; //ml/min/mm Hg
-    parameter Real Ll =  0.172; //
-    parameter Real Lt =  0.104;
-    parameter Real D =  0.8; //New  - value of Henriksen and Lieberman
-    parameter Real Vmin =  0.1;  //minimum volume when P = Pamin
-
-    Real Phv;
-    Real Pp;
-    Real Pc;
-    Real Pl;
-    Real Jl;
-    Real Ji;
-    Real Jy;
-
-    Real Pa, Aa;
-    Real Pgrad = time annotation (Dialog(tab="General", group="Inputs"));
-
-    Real Av = Vmin+D*(Pa-Pamin);
-    equation
-
-      //First condition, Pa&lt;Pra+Pdel;
-      if Pa < Pra + Pdel then
-        Phv = Pra+Pdel;
-        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
-
-      else
-        Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
-        Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
-
-      end if;
-    //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
-    Pp = Phv+Pgrad;
-    Pc = Pp+3;//intestinal capillary pressure
-    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
-
-    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
-    Jy=Jl+Ji;//fluid balance, //Aa =
-    //else
-        //Second condition, Pa&gt;Pra+Pdel;
-
-    // Pp = Phv+Pgrad;
-    // Pc = Pp+3;//intestinal capillary pressure
-    // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
-    //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
-    // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
-    // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
-    // solutions2 = solve({eq1,eq2},{Pa,Aa});
-
-      annotation (experiment(
-          StartTime=6,
-          StopTime=25,
-          __Dymola_NumberOfIntervals=5000,
-          Tolerance=1e-05,
-          __Dymola_Algorithm="Dassl"));
-    end LevittCase1SS;
-
-    model LevitCase2Dynamics
-      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
-    parameter Boolean paracentesis = false;
-
-    //Independent variables
-    parameter Real dayconv =  24.0 "hours/day   - thus paramteters in units of 1/day";
-    parameter Real volconv = 0.001 "liter/ml";
-
-    //volconv = 1.0 "liter/ml";
-    parameter Real Ap = 25 "Plasma colloid osmoitc pressure";
-    parameter Real Po =  2.0 "minimum pressure in the pressure Pa vs Volume relation";
-    parameter Real Pvg = 2.0 "Hep[atic vein to CVP gradient";
-    parameter Real Pmin = Po "minimum pressure in the lymph flow equation (in paper - assume that = Po";
-    parameter Real Vmin =  0.1 "No lymph flow until ascitic volume ";
-    parameter Real Pbreak =  8.0 "pressure required to break liver lymphatics";
-    parameter Real D =  0.8 " Experimental Valuesml/mm Hg   Volume = Vmin+D*(Pa - Po),  in steady state  Vol = D*P";
-
-    //Adjustable paramters:  These are the same values used in Ascites_state_grad9 and in paper
-    parameter Real m = 0.8 "liver tissue protein = 80% of plasma";
-    parameter Real Lt = 6.25*dayconv*volconv "ml/hour/mm Hg for total conductance from paper";
-    parameter Real Lc = 2.0*Lt;
-    parameter Real Li = Lc "distribute intestinal resistance equally between capilary and mesothelium";
-    parameter Real Ll =   10.3*dayconv*volconv;
-    parameter Real Ly0 =  7.86*dayconv*volconv "ml/hour mm Hg  steady state value";
-
-    //parameters for intestinal tissue
-    parameter Real Vimin = 100*volconv " = 100 ml = int. volume where Pi = Pa (i.e. 0 presssure gradient";
-    parameter Real Vimin2 = 50*volconv " have constant negative pressure for Vi <Vimin2";
-    parameter Real Di =  (0.75/100)/volconv "mm/ml Hg  P = Di*Vi  NOTE: units are the inverse of D - this corresponds to 0.75 mm Hg pressure increase for doubling of volume from 100 to 200 ml";
-    parameter Real Lyi =  18*dayconv*volconv "int. tissue lymph flow - about twice the conductance of the peritoneal space";
-    //Real Vi0 = 110*volconv "initial intestinal volume";
-    parameter Real Perm =  2.0*volconv "capillary protein permeability";
-
-    parameter Modelica.Units.SI.Time t_e =  30 "event time";
-    parameter Real Pgrad1 = 16, Pgrad2 = 12.8;
-    parameter Real Pra1 = 5,Pra2 = 2;
-
-    Real Pgrad = if time < t_e then Pgrad1 else Pgrad2;
-    Real Pra = if time < t_e then Pra1 else Pra2;
-    Real Ly = if paracentesis and time > t_e and time < t_e + 0.5 then Ly0*50 else Ly0 "At Pgrad = 20.0 and Pra = 5.0;";
-
-    //Initial condtions:
-    parameter Real V0 = Vmin "initial ascites volume";
-    // Real Pp = Phv+4 "Cannot use Phv+Pgrad1 because this make Ai <0 because of low Pa";
-    parameter Real Vi0 =  Vimin "Initial intestine volume follow from Pi = Pa";
-    //Real Ai = Ap+Pi-Pc "equilibrium across capillary";
-    Real Amti0 = Ai*Vi0 "initial intestine amount - Ai*VI0";
-    Real Amt0 = Aa*V0 "initial ascite amount";
-
-    // ODEs
-    Real Va(start = V0);
-    Real Amt(start = Amt0);
-    Real Vi(start = Vi0);
-    Real Amti(start = Amti0);
-
-    // Simple parameter relations (algebraic, not requiring diff. eq.
-    Real Pp(start = Phv+4) = Phv+Pgrad "portal vein pressure";
-    Real Pl = (Pp + Phv)/2.0 "liver tissue pressure = average sinusoidal pressure";
-
-    Real Pa( start = Pmin) = if Va<=Vmin then Po else Po+(Va-Vmin)/D "linear,  see older version for quadratic";
-    // Real Phv(start = Pra1+3) = if Pra+Pvg >Pa then Pra+Pvg else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
-    Real Phv(start = Pra1+3) = max(Pra+Pvg, Pa) "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
-    Real Pc = Pp+3 "Intestinal capillary pressure";
-    Real Pi(start = Pa) = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
-
-    Real Aa(start = Ai) = if Amt<=0 then 0.001 else Amt/Va "ascites protein conc.";
-    Real Ai( start = Ap+Pi-Pc) =  if Amti<=0 then 0.001 else Amti/Vi "int. tissue protein conc.";
-
-    Real Ji =   Li*(Aa - Ai+Pi-Pa) "volume flow across intestinal mesotheium into ascites";
-    Real Jl =  if (Pl-Pa)<Pbreak then 0 else Ll*(Pl-Pa-Pbreak) "volume flow from liver";
-    Real Jy = if Pa<=Po then 0 else Ly*(Pmin+Pa-Pra) "0 if Va<0, Pmin pressure if Pa<Pra,else Pmin+Pa-Pra";
-
-    Real Jla = m*Ap*Jl "albumin flow from liver";
-    Real Jya = Aa*Jy " peritoneal lymph protrein removal rate (Aa = ascites protein)";
-
-    //New relations for intestinal tissue compartment
-    Real Jc =  Lc*(Pc - Pi+ Ai -Ap) "capillary water flow";
-    Real Jyi = if (Pi-Pa)<0 then 0 else Lyi*(Pi-Pa) "For some reason, this integrates rapidly gives reasonable results";
-    Real JcA = Perm*(Ap - Ai) "New -add a capillary protein permeabilit to balance int. lymph flow protein";
-
-    equation
-    //Differential equations:
-    der(Va) = Ji+Jl-Jy;
-    der(Amt)=Jla-Jya;
-    der(Vi)=Jc-Jyi-Ji;
-    der(Amti)= JcA  -Jyi*Ai;
-
-      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-            coordinateSystem(preserveAspectRatio=false)),
-        experiment(
-          StopTime=60,
-          __Dymola_NumberOfIntervals=5000,
-          Tolerance=1e-05,
-          __Dymola_Algorithm="Dassl"));
-    end LevitCase2Dynamics;
-
-    model LD_concs
-      extends AscitesLevitt.LevitCase2Dynamics(
-        Ap=22.0,
-        Pgrad2=5.0,
-        Pvg=0.0);
-      constant Physiolibrary.Types.Pressure mmHg=133.322387415;
-      OncoticPressures.POnc2Conc pOnc2Conc(
-        inputIsPressure=false,
-        inputValue=4,
-        AGf=4/3)
-        annotation (Placement(transformation(extent={{-40,-20},{-20,0}})));
-      OncoticPressures.POnc2Conc protein_asictes(
-        inputIsPressure=true,
-        inputValue=Aa,
-        AGf=4/3) annotation (Placement(transformation(extent={{0,-20},{20,0}})));
-      OncoticPressures.POnc2Conc protein_intes(
-        inputIsPressure=true,
-        inputValue=Ai,
-        AGf=4/3)
-        annotation (Placement(transformation(extent={{40,-20},{60,0}})));
-    end LD_concs;
-
-    model LSS_concs
-      extends AscitesLevitt.LevittCase1SS;
-      OncoticPressures.POnc2Conc protein_plasma(inputIsPressure=true,
-          inputValue=Ap)
-        annotation (Placement(transformation(extent={{-60,20},{-40,40}})));
-      OncoticPressures.POnc2Conc protein_asc(inputIsPressure=true, inputValue=
-            Aa) annotation (Placement(transformation(extent={{-20,20},{0,40}})));
-    end LSS_concs;
-
-    package Test
-      model Healthy
-        extends AscitesLevitt.LD_concs(
-                         Vmin=0.01);
-      end Healthy;
-
-      model PortalHT
-        extends Healthy( Pgrad2=10);
-      end PortalHT;
-
-      model Nephrotic
-        extends Healthy(Ap=3.6, pOnc2Conc(inputValue=1));
-      end Nephrotic;
-
-      model Cirrhosis
-        extends Healthy(Pgrad2=20, pOnc2Conc(inputValue=2));
-      end Cirrhosis;
-    end Test;
-
-    model LevittCase1SS_SI
-      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //  Real Ji, Aa, Vmin;
-    constant Real mmHg = 133.322;
-
-    parameter Physiolibrary.Types.Pressure  Pra(displayUnit="mmHg")=266.64477483 "right atrial pressure"
-                                                   annotation(Evaluate = false);
-    parameter Physiolibrary.Types.Pressure Pamin=266.64477483 "minimum ascites pressure when Jlymph = 0";
-    parameter Physiolibrary.Types.Pressure Ap(displayUnit="mmHg")=3333.059685375 "Blood colloid osmotic pressure";
-    parameter Real m =  0.8;
-    parameter Physiolibrary.Types.Pressure Pmin(displayUnit="mmHg")=266.64477483 "Minmal ascites pressure. Must be less than Pra";
-    parameter Physiolibrary.Types.Pressure Pdel(displayUnit="mmHg")=266.64477483 "Hepatic vein pressure drop. Assumed same as Pmin"
-                                                      annotation(Evaluate=false);
-    parameter Physiolibrary.Types.Pressure Pbreak(displayUnit="mmHg")=1066.57909932;
-    parameter Physiolibrary.Types.HydraulicConductance Ly(displayUnit="ml/(mmHg.min)")=
-         1.6376344405963e-11;                                       //ml/min/mm Hg
-    parameter Physiolibrary.Types.HydraulicConductance Ll(displayUnit="ml/(mmHg.min)")=
-         2.1501765174242e-11;                                       //
-    parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit="ml/(mmHg.min)")=
-         1.3001067314658e-11;
-    parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=6.0004926067653e-06;
-                                                                //New  - value of Henriksen and Lieberman. 0.8 L/mmHg
-    parameter Physiolibrary.Types.Volume Vmin(displayUnit="l")=0.0001;
-                                                       //minimum volume when P = Pamin
-
-    parameter Physiolibrary.Types.Pressure PcGrad=399.967162245
-                                                      "Gradient from portal to intestinal capillary pressure";
-    Physiolibrary.Types.Pressure Phv "Hepatic vein pressure";
-    Physiolibrary.Types.Pressure Pp "Portal vein pressure";
-    Physiolibrary.Types.Pressure Pc "Intestinal capillary pressure";
-    Physiolibrary.Types.Pressure Pl "Liver sinus pressure";
-    Physiolibrary.Types.VolumeFlowRate Jl;
-    Physiolibrary.Types.VolumeFlowRate Ji;
-    Physiolibrary.Types.VolumeFlowRate Jy;
-
-    Physiolibrary.Types.Pressure Pa;
-    Physiolibrary.Types.Pressure Aa;
-    Physiolibrary.Types.Pressure Pgrad = time*mmHg annotation (Dialog(tab="General", group="Inputs"));
-
-    Physiolibrary.Types.Volume Av = Vmin+D*(Pa-Pamin);
-    equation
-
-      //First condition, Pa&lt;Pra+Pdel;
-      if Pa < Pra + Pdel then
-        Phv = Pra+Pdel;
-        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
-
-      else
-        Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
-        Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
-
-      end if;
-    //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
-    Pp = Phv+Pgrad;
-    Pc = Pp+PcGrad;//intestinal capillary pressure
-    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
-
-    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
-    Jy=Jl+Ji;//fluid balance, //Aa =
-    //else
-        //Second condition, Pa&gt;Pra+Pdel;
-
-    // Pp = Phv+Pgrad;
-    // Pc = Pp+3;//intestinal capillary pressure
-    // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
-    //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
-    // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
-    // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
-    // solutions2 = solve({eq1,eq2},{Pa,Aa});
-
-      annotation (experiment(
-          StartTime=-5,
-          StopTime=25,
-          __Dymola_NumberOfIntervals=5000,
-          Tolerance=1e-05,
-          __Dymola_Algorithm="Dassl"));
-    end LevittCase1SS_SI;
-
-    model LevittCase1SsSiIo
-      "Model of static ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code into SI units and IO"
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //  Real Ji, Aa, Vmin;
-    constant Real mmHg = 133.322;
-
-    // parameter Physiolibrary.Types.Pressure  Pra(displayUnit="mmHg")=266.64477483 "right atrial pressure"
-    //                                                annotation(Evaluate = false);
-    parameter Physiolibrary.Types.Pressure Pamin=266.64477483 "minimum ascites pressure when Jlymph = 0";
-    parameter Physiolibrary.Types.Pressure Ap(displayUnit="mmHg")=3333.059685375 "Blood colloid osmotic pressure";
-    parameter Real m =  0.8;
-    parameter Physiolibrary.Types.Pressure Pmin(displayUnit="mmHg")=266.64477483 "Minmal ascites pressure. Must be less than Pra";
-    // parameter Physiolibrary.Types.Pressure Pdel(displayUnit="mmHg")=266.64477483 "Hepatic vein pressure drop. Assumed same as Pmin"
-    //                                                   annotation(Evaluate=false);
-    parameter Physiolibrary.Types.Pressure Pbreak(displayUnit="mmHg")=1066.57909932;
-    parameter Physiolibrary.Types.HydraulicConductance Ly(displayUnit="ml/(mmHg.min)")=
-         1.6376344405963e-11;                                       //ml/min/mm Hg
-    parameter Physiolibrary.Types.HydraulicConductance Ll(displayUnit="ml/(mmHg.min)")=
-         2.1501765174242e-11;                                       //
-    parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit="ml/(mmHg.min)")=
-         1.3001067314658e-11;
-    parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=6.0004926067653e-06;
-                                                                //New  - value of Henriksen and Lieberman. 0.8 L/mmHg
-    parameter Physiolibrary.Types.Volume Vmin(displayUnit="l")=0.0001;
-                                                       //minimum volume when P = Pamin
-
-    // parameter Physiolibrary.Types.Pressure PcGrad=399.967162245
-    //                                                   "Gradient from portal to intestinal capillary pressure";
-    // Physiolibrary.Types.Pressure Phv "Hepatic vein pressure";
-    // Physiolibrary.Types.Pressure Pp "Portal vein pressure";
-    // Physiolibrary.Types.Pressure Pc "Intestinal capillary pressure";
-    Physiolibrary.Types.Pressure Pl "Liver sinus pressure";
-    Physiolibrary.Types.VolumeFlowRate Jl;
-    Physiolibrary.Types.VolumeFlowRate Ji;
-    Physiolibrary.Types.VolumeFlowRate Jy;
-
-    // Physiolibrary.Types.Pressure Pa;
-    Physiolibrary.Types.Pressure Aa;
-
-    Physiolibrary.Types.Volume Av = Vmin+ max(0, D*(Pa-Pamin));
-      Physiolibrary.Types.RealIO.PressureInput Pp "portal vein pressure input"
-         annotation (Placement(transformation(extent={{-120,-20},{-80,20}})));
-      Physiolibrary.Types.RealIO.PressureInput Pra "Right atrial pressure input"
-        annotation (Placement(transformation(extent={{80,-20},{120,20}})));
-      Physiolibrary.Types.RealIO.PressureOutput Pa "Ascites pressure output"
-        annotation (Placement(transformation(extent={{-20,-100},{20,-60}})));
-      Physiolibrary.Types.RealIO.PressureInput Phv "Hepatic vein pressure input"
-        annotation (Placement(transformation(extent={{-120,-100},{-80,-60}})));
-      Physiolibrary.Types.RealIO.PressureInput Pc "Intestinal capillary pressure"
-        annotation (Placement(transformation(extent={{-120,60},{-80,100}})));
-    equation
-
-        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
-    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
-
-    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
-    Jy=Jl+Ji;//fluid balance, //Aa =
-
-      annotation (experiment(
-          StartTime=6,
-          StopTime=25,
-          __Dymola_NumberOfIntervals=5000,
-          Tolerance=1e-05,
-          __Dymola_Algorithm="Dassl"));
-    end LevittCase1SsSiIo;
-
-    model LevittCase1SS_SIInverted
-      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code. Inverted the causality of HVPG as an output."
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Ai,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,Apoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //   Real D,Ly,Pbreak,Va,R,F,Pra,Pp,Pc,Pa,Pi,Pl,Phv,Aa1,Aa2,Pa1,Pa2,Jl,Jla,Jy,m,Pmin,Jya,Ap,Pdel,Pgrad,nplot,maxLl,mPa,mLl,i,Ll,x1,x2,Papoint,Lypoint,Setupeqs,delLl,Lt,maxgrad,MaxPa,MaxAa,Pamin,mingrad,delgrad,maxN,Vpoint,gradfract,m2Pa,Pgrad0,Vpoint2,delplot;
-    //  Real Ji, Aa, Vmin;
-    constant Real mmHg = 133.322;
-
-    parameter Physiolibrary.Types.Pressure  Pra(displayUnit="mmHg")=266.64477483 "right atrial pressure"
-                                                   annotation(Evaluate = false);
-    parameter Physiolibrary.Types.Pressure Pamin=266.64477483 "minimum ascites pressure when Jlymph = 0";
-    parameter Physiolibrary.Types.Pressure Ap(displayUnit="mmHg")=3333.059685375 "Blood colloid osmotic pressure";
-    parameter Real m =  0.8;
-    parameter Physiolibrary.Types.Pressure Pmin(displayUnit="mmHg")=266.64477483 "Minmal ascites pressure. Must be less than Pra";
-    parameter Physiolibrary.Types.Pressure Pdel(displayUnit="mmHg")=266.64477483 "Hepatic vein pressure drop. Assumed same as Pmin"
-                                                      annotation(Evaluate=false);
-    parameter Physiolibrary.Types.Pressure Pbreak(displayUnit="mmHg")=1066.57909932;
-    parameter Physiolibrary.Types.HydraulicConductance Ly(displayUnit="ml/(mmHg.min)")=
-         1.6376344405963e-11;                                       //ml/min/mm Hg
-    parameter Physiolibrary.Types.HydraulicConductance Ll(displayUnit="ml/(mmHg.min)")=
-         2.1501765174242e-11;                                       //
-    parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit="ml/(mmHg.min)")=
-         1.3001067314658e-11;
-    parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=6.0004926067653e-06;
-                                                                //New  - value of Henriksen and Lieberman. 0.8 L/mmHg
-    parameter Physiolibrary.Types.Volume Vmin(displayUnit="l")=0.0001;
-                                                       //minimum volume when P = Pamin
-
-    parameter Physiolibrary.Types.Pressure PcGrad=399.967162245
-                                                      "Gradient from portal to intestinal capillary pressure";
-    Physiolibrary.Types.Pressure Phv "Hepatic vein pressure";
-    Physiolibrary.Types.Pressure Pp "Portal vein pressure";
-    Physiolibrary.Types.Pressure Pc "Intestinal capillary pressure";
-    Physiolibrary.Types.Pressure Pl "Liver sinus pressure";
-    Physiolibrary.Types.VolumeFlowRate Jl;
-    Physiolibrary.Types.VolumeFlowRate Ji;
-    Physiolibrary.Types.VolumeFlowRate Jy;
-
-    Physiolibrary.Types.Pressure Pa=time*133.322
-                                    annotation (Dialog(tab="General", group="Inputs"));
-    Physiolibrary.Types.Pressure Aa;
-    Physiolibrary.Types.Pressure Pgrad annotation (Dialog(tab="General", group="Inputs"));
-
-    Physiolibrary.Types.Volume Av = Vmin+D*(Pa-Pamin);
-    equation
-
-      //First condition, Pa&lt;Pra+Pdel;
-      if Pa < Pra + Pdel then
-        Phv = Pra+Pdel;
-        Jy = if (Pmin+Pa-Pra<=0) then 0 else Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra
-
-      else
-        Phv = Pa;// Simple case - assume that there is ascites with high pressure - makes algabra simpler</Text-field>
-        Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
-
-      end if;
-    //Jy= max(0,Ly*(Pa - Pra + Pmin)) "Lymph flow, eq. 20";
-    Pp = Phv+Pgrad;
-    Pc = Pp+PcGrad;//intestinal capillary pressure
-    Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space
-
-    Aa*Jy=m*Ap*Jl;//protein balance, //Pa =
-    Jy=Jl+Ji;//fluid balance, //Aa =
-    //else
-        //Second condition, Pa&gt;Pra+Pdel;
-
-    // Pp = Phv+Pgrad;
-    // Pc = Pp+3;//intestinal capillary pressure
-    // Pl = (Pp+Phv)/2.0;//Liver sinusoid pressure
-    // Jl = Ll*(Pl-Pa-Pbreak);//Simple case, assume Pl-Pa &gt; Pbreak
-    // Ji = Lt*(Pc-Pa-Ap+Aa); //flux from intestine to ascites space</Text-field>
-    //Jy = Ly*(Pmin+Pa-Pra);//0 Simple case Pa&gt;Pra</Text-field>
-    // eq1 = Aa*Jy=m*Ap*Jl;//protein balancefile:///C:/home/UMICH/ascites/Lymphatics.mo
-    // eq2 = Jy=Jl+Ji;//fluid balance</Text-field>
-    // solutions2 = solve({eq1,eq2},{Pa,Aa});
-
-      annotation (experiment(
-          StopTime=25,
-          __Dymola_NumberOfIntervals=5000,
-          Tolerance=1e-05,
-          __Dymola_Algorithm="Dassl"));
-    end LevittCase1SS_SIInverted;
-  end AscitesLevitt;
 
   package Deprecated
     model AbdominalCompliance
