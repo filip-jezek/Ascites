@@ -679,7 +679,7 @@ package Lymphatics
       end Ascites_Resistance;
 
       model Ascites_Resistance_Shunts
-        extends Ascites_Resistance;
+        extends Ascites_Resistance(levittCase1SsSiIo(D=9.0007389101479e-06));
         ResistancePressureDep shunt(
           Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
           r0_nom(displayUnit="(mmHg.min)/ml") = 7999343244.9,
@@ -695,6 +695,24 @@ package Lymphatics
           "Minimal observable ascites, marking the existence of ascites";
         parameter Physiolibrary.Types.Pressure HVPG_bleed=2266.480586055
                                                           "Minimal HVPG which results in variceal bleeding";
+        ResistancePressureDep esophageal_abdominal(
+          Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
+          r0_nom(displayUnit="(mmHg.min)/ml") = 799934324490,
+          P_nom=1066.57909932,
+          side=Lymphatics.Hemodynamics.Components.SideEnum.Central,
+          useExternalCollapsingPressure=true)
+          annotation (Placement(transformation(extent={{0,-98},{20,-78}})));
+        Physiolibrary.Hydraulic.Components.PumpPressureHead
+                          HV1(useExternalCollapsingPressure=true, p_head0=-266.64477483)
+          "Hepatic vein (free)"
+          annotation (Placement(transformation(extent={{40,-98},{60,-78}})));
+        ResistancePressureDep esophageal_thoracic(
+          Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
+          r0_nom(displayUnit="(mmHg.min)/ml") = 7999343244900,
+          P_nom=1066.57909932,
+          side=Lymphatics.Hemodynamics.Components.SideEnum.Central,
+          useExternalCollapsingPressure=false)
+          annotation (Placement(transformation(extent={{72,-98},{92,-78}})));
       equation
         when shunt.q_in.q > collateralFlowFr*IntestinesArt.q_in.q then
           phase = 2;
@@ -717,6 +735,27 @@ package Lymphatics
             thickness=1));
         connect(shunt.P_ext, levittCase1SsSiIo.Pa) annotation (Line(points={{0,-53},
                 {52,-53},{52,16}},      color={0,0,127}));
+        connect(esophageal_abdominal.q_in, IntestineVenule.q_out) annotation (
+            Line(
+            points={{0,-88},{-14,-88},{-14,0},{-20,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(esophageal_abdominal.q_out, HV1.q_in) annotation (Line(
+            points={{20,-88},{40,-88}},
+            color={0,0,0},
+            thickness=1));
+        connect(HV.EP, esophageal_abdominal.P_ext) annotation (Line(points={{52,
+                8},{52,-72},{32,-72},{32,-79},{0,-79}}, color={0,0,127}));
+        connect(HV1.EP, esophageal_abdominal.P_ext) annotation (Line(points={{
+                40,-80},{32,-80},{32,-79},{0,-79}}, color={0,0,127}));
+        connect(esophageal_thoracic.q_in, HV1.q_out) annotation (Line(
+            points={{72,-88},{60,-88}},
+            color={0,0,0},
+            thickness=1));
+        connect(esophageal_thoracic.q_out, q_out) annotation (Line(
+            points={{92,-88},{96,-88},{96,0},{100,0}},
+            color={0,0,0},
+            thickness=1));
       end Ascites_Resistance_Shunts;
 
       model ResistancePressureDep
@@ -1919,12 +1958,13 @@ package Lymphatics
             P_nom(displayUnit="mmHg") = Shunt_Pnom), useTIPPS=false)
           annotation (Placement(transformation(extent={{-20,40},{0,60}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntsNoCollapse(shunt(
-            Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
+            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-07,
             r0_nom=Shunt_R0nom,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             useExternalCollapsingPressure=false), useTIPPS=false)
           annotation (Placement(transformation(extent={{-20,10},{0,30}})));
         Components.Ascites_Resistance_Shunts ascites_Shunts(
+          esophageal_thoracic(Comp=7.5006157584566e-09),
           shunt(
             Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
             r0_nom=Shunt_R0nom,
@@ -1934,11 +1974,11 @@ package Lymphatics
           annotation (Placement(transformation(extent={{-20,-20},{0,0}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntStiff(
           shunt(
-            Comp(displayUnit="ml/mmHg") = Shunt_Compliance/5,
+            Comp(displayUnit="ml/mmHg") = 3.7503078792283e-08,
             r0_nom=Shunt_R0nom,
             P_nom(displayUnit="mmHg") = Shunt_Pnom),
           useTIPPS=false,
-          levittCase1SsSiIo(D(displayUnit="l/mmHg") = 9.00074E-06))
+          levittCase1SsSiIo(D(displayUnit="l/mmHg")))
           annotation (Placement(transformation(extent={{-20,70},{0,90}})));
         Components.Ascites_Resistance ascites_TIPPS(useTIPPS=true, TIPSS(
               Resistance=R_TIPSS))
@@ -1962,8 +2002,8 @@ package Lymphatics
           annotation (Placement(transformation(extent={{-20,-110},{0,-90}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
-        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=
-           1.6666666666667e-05   "Splanchnic perfusion";
+        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")
+          =1.6666666666667e-05   "Splanchnic perfusion";
         parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
             displayUnit="ml/mmHg")=7.50062e-07;
         parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=
@@ -1974,8 +2014,20 @@ package Lymphatics
         parameter Physiolibrary.Types.HydraulicResistance R_TIPSS(displayUnit=
               "(mmHg.min)/l")=39996700;
         parameter Physiolibrary.Types.Pressure intestinalPressureDrop(
-            displayUnit="mmHg") = 11199.08054286
+            displayUnit="mmHg")=11199.08054286
           "Pressure drop at intestinal arteries";
+        Components.Ascites_Resistance_Shunts ascites_EsophagealShunt(
+          esophageal_thoracic(Comp=7.5006157584566e-09),
+          shunt(
+            Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
+            r0_nom=Shunt_R0nom,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom),
+          useTIPPS=false,
+          levittCase1SsSiIo(D(displayUnit="l/mmHg") = 9.00074E-06))
+          annotation (Placement(transformation(extent={{-20,-140},{0,-120}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump8(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-140},{-40,-120}})));
       equation
         connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
             points={{0,110},{70,110},{70,0},{80,0}},
@@ -2043,6 +2095,15 @@ package Lymphatics
             thickness=1));
         connect(ascites_ShuntStiff.q_out, CVP.y) annotation (Line(
             points={{0,80},{70,80},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump8.q_out, ascites_EsophagealShunt.q_in) annotation
+          (Line(
+            points={{-40,-130},{-20,-130}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_EsophagealShunt.q_out, CVP.y) annotation (Line(
+            points={{0,-130},{70,-130},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
         annotation (
@@ -2331,6 +2392,14 @@ package Lymphatics
             7999343244.9 "Nominal resistance at P_nom";
         parameter Physiolibrary.Types.HydraulicResistance R_TIPSS(displayUnit=
               "(mmHg.min)/l") = 39996700.0;
+        Components.Ascites_Resistance_Shunts ascites_ShuntsStiff(shunt(
+            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
+            r0_nom=Shunt_R0nom,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom), useTIPPS=false)
+          annotation (Placement(transformation(extent={{-20,-40},{0,-20}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump1(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-40},{-40,-20}})));
       equation
         connect(ascites_Shunts.q_out, CVP.y) annotation (Line(
             points={{0,0},{80,0}},
@@ -2338,6 +2407,15 @@ package Lymphatics
             thickness=1));
         connect(ascites_Shunts.q_in, unlimitedPump2.q_out) annotation (Line(
             points={{-20,0},{-40,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntsStiff.q_in, unlimitedPump1.q_out) annotation (
+            Line(
+            points={{-20,-30},{-40,-30}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntsStiff.q_out, CVP.y) annotation (Line(
+            points={{0,-30},{70,-30},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
         annotation (
