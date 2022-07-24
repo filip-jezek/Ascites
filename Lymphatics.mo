@@ -801,7 +801,8 @@ package Lymphatics
         parameter Modelica.Units.SI.Length L = 1;
         parameter Physiolibrary.Types.HydraulicCompliance Comp(displayUnit="l/mmHg")=7.5006157584566e-05;
         Modelica.Units.SI.Radius r(start = 1e-3) "Radius";
-        Modelica.Units.SI.Diameter d = 2*r "Diameter";
+        Modelica.Units.SI.Diameter d=2*r "Diameter" annotation (Dialog(group="External inputs/outputs",
+              enable=UsePrescribedDiameter));
         Physiolibrary.Types.Volume V=Modelica.Constants.pi*(r^2)*L "Actual volume";
 
         parameter Physiolibrary.Types.HydraulicResistance R_nom(displayUnit="(mmHg.min)/l")=
@@ -820,13 +821,41 @@ package Lymphatics
         Physiolibrary.Types.RealIO.PressureInput P_ext=p_abd   if useExternalCollapsingPressure "ExternalPressure"
           annotation (Placement(transformation(extent={{-120,70},{-80,110}})));
           Physiolibrary.Types.Pressure P_transm = (P_inner - p_abd);
-      parameter Boolean useExternalCollapsingPressure = false;
-        Modelica.Units.SI.ShearStress shearStress = dp*d/L/4;
-        Modelica.Units.SI.ShearStress shearStress0 = P_nom*(r_nom*2)/L/4;
-        parameter Boolean useShearRemodelling = false;
+          parameter Boolean useExternalCollapsingPressure = false;
 
+        // calculation from http://www.homepages.ucl.ac.uk/~uceseug/Fluids2/Notes_Viscosity.pdf
+        Modelica.Units.SI.ShearStress shearStress = 4*ni*q_in.q/r^3 "Current wall shear stress";
+        Modelica.Units.SI.ShearStress shearStress0= 4*ni*(P_nom/R_nom)/r_nom^3 "nominal shear stress";
+
+      //   Modelica.Units.SI.ShearStress shearStress_ = dp*d/L/4;
+      //   Modelica.Units.SI.ShearStress shearStress0_ = P_nom*(r_nom*2)/L/4;
+        parameter RemodelingModel rm = RemodelingModel.Pd;
+      //  parameter Boolean useShearRemodelling = false;
+
+      parameter Boolean UsePrescribedDiameter = false;
       protected
+        type Tension =   Real (final quantity = "Tension", final unit = "N/m");
+        type Radius =   Modelica.Units.SI.Radius (
+                                                final nominal =   1e-6);
+        type CircumferentialLength =   Modelica.Units.SI.Length (
+                                                               final nominal =   1e-3);
+
         Physiolibrary.Types.Pressure p_abd "Abdominal pressure";
+
+
+        // TENSIONS
+        Tension T_p = a*f_L + b*g_L "Passive vessel wall tension";
+        Real f_L = L*(L - L_0)/L_0 "Tension function on circumferential wall length";
+        Real g_L = L_0*(exp(d*(L - L_0)/L_0) - 1)
+          "Tension function on circumferential wall length";
+        CircumferentialLength L_0 = r_nom*(2*Modelica.Constants.pi)
+          "Zero-pressure circumferential wall length";
+
+
+        // TENSION PARAMETERS
+      //  constant Real mmHg2Pa = 133.32;
+        parameter Tension a = 108.5657 "identified by Matlab's cftool and fixed";
+        parameter Tension b = 0.0026 "identified by Matlab's cftool and fixed";
 
       equation
         if not useExternalCollapsingPressure then
@@ -836,14 +865,30 @@ package Lymphatics
       //   P_nom
         R_nom = 8*ni*L/(Modelica.Constants.pi*r_nom^4);
 
-        R = 8*ni*L/(Modelica.Constants.pi*(r^4));
 
-
-        if not useShearRemodelling then
-        max(P_transm - P_nom, 0)*Comp = V - V_nom;
+        if UsePrescribedDiameter then
+          R = 8*ni*L/(Modelica.Constants.pi*((d/2)^4));
         else
-        shearStress = shearStress0;
+          R = 8*ni*L/(Modelica.Constants.pi*(r^4));
         end if;
+
+
+        if rm == RemodelingModel.Pd then
+          // simple pressure difference - correlates with the shear
+          max(dp - P_nom, 0)*Comp = V - V_nom;
+        elseif rm == RemodelingModel.Pt then
+          // transmural pressure difference
+          max(P_transm - P_nom, 0)*Comp = V - V_nom;
+        elseif rm == RemodelingModel.Wt then
+          // pass
+          P_inner * r  =  T_p;
+        else
+          der(r) = -1*(shearStress - shearStress0);
+        end if;
+
+
+
+
 
 
         if side == SideEnum.Left then
@@ -855,6 +900,8 @@ package Lymphatics
         end if;
 
         q_in.q =(q_in.pressure - q_out.pressure)/R;
+
+
         annotation (Icon(coordinateSystem(preserveAspectRatio=false, extent={{
                   -100,-100},{100,100}}),
                          graphics={Text(
@@ -1386,384 +1433,636 @@ package Lymphatics
                 thickness=1,
                 smooth=Smooth.Bezier)}));
       end ComplianceTube;
-    end Components;
 
-    package Tests
+      package Tests
 
-      model Ascites_PG
-        extends Components.partialAscites(
-                                     Liver(useExternalPressureHead=true));
-        Modelica.Blocks.Sources.RealExpression realExpression(y=-time*133.322)
-          annotation (Placement(transformation(extent={{-52,-52},{-32,-32}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
-          annotation (Placement(transformation(extent={{100,-10},{80,10}})));
-      equation
-        connect(Liver.p_headIn,realExpression. y) annotation (Line(points={{10,10},
-                {-24,10},{-24,-42},{-31,-42}},
-                                         color={0,0,127}));
-        connect(CVP.y, HV.q_out) annotation (Line(
-            points={{80,0},{72,0}},
-            color={0,0,0},
-            thickness=1));
-      end Ascites_PG;
-
-      model Ascites_Resistance
-        extends Components.partialAscites(
-          redeclare Physiolibrary.Hydraulic.Components.Resistor Liver(
-              useConductanceInput=true, Resistance=6*mmHg/Qnom),
-          redeclare Physiolibrary.Hydraulic.Components.Resistor IntestinesArt(
-              Resistance=84*mmHg/Qnom),
-          redeclare Physiolibrary.Hydraulic.Components.Resistor IntestineVenule(
-              Resistance=3*mmHg/Qnom));
-        Modelica.Blocks.Sources.RealExpression realExpression1(y=1/(time*mmHg/Qnom))
-          annotation (Placement(transformation(extent={{-32,18},{-12,38}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume2(P=666.611937075)
-          annotation (Placement(transformation(extent={{-176,-20},{-196,0}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=13332.2387415)
-          annotation (Placement(transformation(extent={{-110,-10},{-90,10}})));
-
-        parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(5000*
-            0.2) "Nominal flow through the splanchnic circulation";
-        parameter Physiolibrary.Types.Pressure mmHg=133.322;
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
-          annotation (Placement(transformation(extent={{110,-10},{90,10}})));
-        Physiolibrary.Hydraulic.Components.Resistor TIPSS(
-          enable=true,
-          useConductanceInput=false,
-          Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5*1e15))
-          annotation (Placement(transformation(extent={{-2,-50},{18,-30}})));
-        Components.Ascites_Resistance ascites_Resistance
-          annotation (Placement(transformation(extent={{-2,-86},{18,-66}})));
-        Components.SplanchnicCirculation splanchnicCirculation
-          annotation (Placement(transformation(extent={{-2,-130},{18,-110}})));
-      equation
-        connect(Liver.cond, realExpression1.y) annotation (Line(points={{10,6},{
-                10,14},{-4,14},{-4,28},{-11,28}},
+        model Ascites_PG
+          extends Components.partialAscites(
+                                       Liver(useExternalPressureHead=true));
+          Modelica.Blocks.Sources.RealExpression realExpression(y=-time*133.322)
+            annotation (Placement(transformation(extent={{-52,-52},{-32,-32}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+            annotation (Placement(transformation(extent={{100,-10},{80,10}})));
+        equation
+          connect(Liver.p_headIn,realExpression. y) annotation (Line(points={{10,10},
+                  {-24,10},{-24,-42},{-31,-42}},
                                            color={0,0,127}));
-        connect(IntestinesArt.q_in, unlimitedVolume1.y) annotation (Line(
-            points={{-80,0},{-90,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(CVP.y, HV.q_out) annotation (Line(
-            points={{90,0},{72,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(TIPSS.q_in, IntestineVenule.q_out) annotation (Line(
-            points={{-2,-40},{-14,-40},{-14,2.22045e-16},{-20,2.22045e-16}},
-            color={0,0,0},
-            thickness=1));
-        connect(TIPSS.q_out, HV.q_in) annotation (Line(
-            points={{18,-40},{24,-40},{24,2.22045e-16},{52,2.22045e-16}},
-            color={0,0,0},
-            thickness=1));
-        connect(ascites_Resistance.q_in, unlimitedVolume1.y) annotation (Line(
-            points={{-2,-76},{-86,-76},{-86,0},{-90,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(ascites_Resistance.q_out, HV.q_out) annotation (Line(
-            points={{18,-76},{86,-76},{86,0},{72,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(splanchnicCirculation.q_out, HV.q_out) annotation (Line(
-            points={{18,-124},{34,-124},{34,-76},{86,-76},{86,0},{72,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(splanchnicCirculation.q_in, unlimitedVolume1.y) annotation (
-            Line(
-            points={{-2,-124},{-22,-124},{-22,-74},{-86,-74},{-86,0},{-90,0}},
-            color={0,0,0},
-            thickness=1));
-        annotation (Documentation(info="<html>
-<p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
-</html>"));
-      end Ascites_Resistance;
+          connect(CVP.y, HV.q_out) annotation (Line(
+              points={{80,0},{72,0}},
+              color={0,0,0},
+              thickness=1));
+        end Ascites_PG;
 
-      model TestResistance
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(
-            usePressureInput=true, P=13332.2387415)
-          annotation (Placement(transformation(extent={{-104,-10},{-84,10}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(usePressureInput=
-              true, P=666.611937075)
-          annotation (Placement(transformation(extent={{116,-10},{96,10}})));
-        Components.ResistancePressureDep resistancePressureDep(
-          R_nom(displayUnit="(mmHg.min)/l") = 7999343.2449,
-          Comp(displayUnit="ml/mmHg") = 7.5006157584566e-07,
-          P_nom=666.611937075,
-          side=Lymphatics.Hemodynamics.Components.SideEnum.Right)
-          annotation (Placement(transformation(extent={{-10,-10},{10,10}})));
-        Modelica.Blocks.Sources.RealExpression realExpression(y=max(time, 5)*
-              133.322)
-          annotation (Placement(transformation(extent={{92,30},{112,50}})));
-        Modelica.Blocks.Sources.RealExpression realExpression1(y=(10*sin(6.28*
-              time) + 100)*133.322)
-          annotation (Placement(transformation(extent={{-144,34},{-124,54}})));
-      equation
-        connect(unlimitedVolume1.y, resistancePressureDep.q_in) annotation (
-            Line(
-            points={{-84,0},{-10,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(CVP.y, resistancePressureDep.q_out) annotation (Line(
-            points={{96,0},{10,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(realExpression.y, CVP.pressure) annotation (Line(points={{113,
-                40},{150,40},{150,0},{116,0}}, color={0,0,127}));
-        connect(unlimitedVolume1.pressure, realExpression1.y) annotation (Line(
-              points={{-104,0},{-123,0},{-123,44}}, color={0,0,127}));
-        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)),
-          experiment(
-            StopTime=10,
-            Tolerance=1e-06,
-            __Dymola_Algorithm="Cvode"));
-      end TestResistance;
+        model Ascites_Resistance
+          extends Components.partialAscites(
+            redeclare Physiolibrary.Hydraulic.Components.Resistor Liver(
+                useConductanceInput=true, Resistance=6*mmHg/Qnom),
+            redeclare Physiolibrary.Hydraulic.Components.Resistor IntestinesArt(
+                Resistance=84*mmHg/Qnom),
+            redeclare Physiolibrary.Hydraulic.Components.Resistor IntestineVenule(
+                Resistance=3*mmHg/Qnom));
+          Modelica.Blocks.Sources.RealExpression realExpression1(y=1/(time*mmHg/Qnom))
+            annotation (Placement(transformation(extent={{-32,18},{-12,38}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume2(P=666.611937075)
+            annotation (Placement(transformation(extent={{-176,-20},{-196,0}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=13332.2387415)
+            annotation (Placement(transformation(extent={{-110,-10},{-90,10}})));
 
-      model AscitesResistanceBased
-        "Levitts ascites with nominal hemodynamics break down"
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume(P=666.611937075)
-          annotation (Placement(transformation(extent={{100,-10},{80,10}})));
-        AscitesLevitt.LevittCase1SsSiIo levittCase1SsSiIo
-          annotation (Placement(transformation(extent={{30,54},{50,74}})));
-        Physiolibrary.Hydraulic.Components.PumpPressureHead
-                          HV(useExternalCollapsingPressure=true, p_head0=-266.64477483)
-          "Hepatic vein (free)"
-          annotation (Placement(transformation(extent={{20,-10},{40,10}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure PRa "Right atrial pressure"
-          annotation (Placement(transformation(extent={{80,40},{60,60}})));
-        Physiolibrary.Hydraulic.Components.PumpPressureHead Liver(
-            useExternalPressureHead=true, p_head0=-799.93432449)
-          annotation (Placement(transformation(extent={{-20,-10},{0,10}})));
-        Physiolibrary.Hydraulic.Components.PumpPressureHead IntestineVenule(p_head0=-399.967162245)
-          "Intestinal venule pressure drop"
-          annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure Ppv
-          annotation (Placement(transformation(extent={{-40,58},{-20,78}})));
-        Physiolibrary.Hydraulic.Components.PumpPressureHead IntestinesArt(p_head0=-11199.08054286)
-          "Intestinal Arteriole resistance"
-          annotation (Placement(transformation(extent={{-100,-10},{-80,10}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure Pc
-          annotation (Placement(transformation(extent={{-68,66},{-48,86}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure Phv
-          annotation (Placement(transformation(extent={{-2,50},{18,70}})));
-        Modelica.Blocks.Sources.RealExpression realExpression(y=-time*133.322)
-          annotation (Placement(transformation(extent={{-94,12},{-74,32}})));
-        parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(
-            5000*0.2) "Nominal flow through the splanchnic circulation";
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=
-              13332.2387415)
-          annotation (Placement(transformation(extent={{-130,-30},{-110,-10}})));
-        Physiolibrary.Hydraulic.Components.Resistor R_intestArt(Resistance=84*
-              mmHg/Qnom)
-          annotation (Placement(transformation(extent={{-100,-30},{-80,-10}})));
-        parameter Physiolibrary.Types.Pressure mmHg=133.322;
-        Physiolibrary.Hydraulic.Components.Resistor R_IntestVen(Resistance=3*mmHg
-              /Qnom)
-          annotation (Placement(transformation(extent={{-60,-30},{-40,-10}})));
-        Physiolibrary.Hydraulic.Components.Resistor R_liver(useConductanceInput=
-              true, Resistance=6*mmHg/Qnom)
-          annotation (Placement(transformation(extent={{-20,-10},{0,-30}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume2(P=
-              666.611937075)
-          annotation (Placement(transformation(extent={{100,-30},{80,-10}})));
-        Physiolibrary.Hydraulic.Components.PumpPressureHead PG_HV(
-            useExternalCollapsingPressure=true, p_head0=-266.64477483)
-          "Hepatic vein (free)"
-          annotation (Placement(transformation(extent={{20,-30},{40,-10}})));
-        Modelica.Blocks.Sources.RealExpression realExpression1(y=1/(time*mmHg/
-              Qnom))
-          annotation (Placement(transformation(extent={{-72,-70},{-52,-50}})));
-        Physiolibrary.Hydraulic.Components.Resistor R_shunt(Resistance(
-              displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5))
-          annotation (Placement(transformation(extent={{-18,-84},{2,-64}})));
-      equation
-        connect(unlimitedVolume.y, PRa.q_in) annotation (Line(
-            points={{80,0},{74,0},{74,44}},
-            color={0,0,0},
-            thickness=1));
-        connect(PRa.pressure, levittCase1SsSiIo.Pra) annotation (Line(points={{64,46},
-                {56,46},{56,64},{50,64}}, color={0,0,127}));
-        connect(HV.q_out, unlimitedVolume.y) annotation (Line(
-            points={{40,0},{80,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(Liver.q_out, HV.q_in) annotation (Line(
-            points={{0,0},{20,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(IntestineVenule.q_out, Liver.q_in) annotation (Line(
-            points={{-40,0},{-20,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(Ppv.q_in, IntestineVenule.q_out) annotation (Line(
-            points={{-34,62},{-34,0},{-40,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(levittCase1SsSiIo.Pp, Ppv.pressure)
-          annotation (Line(points={{30,64},{-24,64}}, color={0,0,127}));
-        connect(IntestinesArt.q_out, IntestineVenule.q_in) annotation (Line(
-            points={{-80,0},{-60,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(IntestinesArt.q_out, Pc.q_in) annotation (Line(
-            points={{-80,0},{-62,0},{-62,70}},
-            color={0,0,0},
-            thickness=1));
-        connect(Liver.q_out,Phv. q_in) annotation (Line(
-            points={{0,0},{4,0},{4,54}},
-            color={0,0,0},
-            thickness=1));
-        connect(Phv.pressure, levittCase1SsSiIo.Phv)
-          annotation (Line(points={{14,56},{30,56}}, color={0,0,127}));
-        connect(Pc.pressure, levittCase1SsSiIo.Pc)
-          annotation (Line(points={{-52,72},{30,72}}, color={0,0,127}));
-        connect(Liver.p_headIn, realExpression.y) annotation (Line(points={{-10,10},
-                {-10,22},{-73,22}},      color={0,0,127}));
-        connect(HV.EP, levittCase1SsSiIo.Pa) annotation (Line(points={{20,8},{20,
-                40},{40,40},{40,56}}, color={0,0,127}));
-        connect(unlimitedVolume1.y, R_intestArt.q_in) annotation (Line(
-            points={{-110,-20},{-100,-20}},
-            color={0,0,0},
-            thickness=1));
-        connect(R_IntestVen.q_in, R_intestArt.q_out) annotation (Line(
-            points={{-60,-20},{-80,-20}},
-            color={0,0,0},
-            thickness=1));
-        connect(R_liver.q_in, R_IntestVen.q_out) annotation (Line(
-            points={{-20,-20},{-40,-20}},
-            color={0,0,0},
-            thickness=1));
-        connect(PG_HV.q_in, R_liver.q_out) annotation (Line(
-            points={{20,-20},{0,-20}},
-            color={0,0,0},
-            thickness=1));
-        connect(PG_HV.q_out, unlimitedVolume2.y) annotation (Line(
-            points={{40,-20},{80,-20}},
-            color={0,0,0},
-            thickness=1));
-        connect(PG_HV.EP, HV.EP) annotation (Line(points={{20,-12},{14,-12},{14,8},
-                {20,8}}, color={0,0,127}));
-        connect(realExpression1.y, R_liver.cond) annotation (Line(points={{-51,
-                -60},{-10,-60},{-10,-26}}, color={0,0,127}));
-        connect(R_shunt.q_in, R_IntestVen.q_out) annotation (Line(
-            points={{-18,-74},{-30,-74},{-30,-20},{-40,-20}},
-            color={0,0,0},
-            thickness=1));
-        connect(R_shunt.q_out, R_liver.q_out) annotation (Line(
-            points={{2,-74},{6,-74},{6,-20},{0,-20}},
-            color={0,0,0},
-            thickness=1));
-        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)),
-          experiment(
-            StartTime=6,
-            StopTime=25,
-            __Dymola_Algorithm="Dassl"));
-      end AscitesResistanceBased;
-
-      model ResistanceControlTest
-        Components.ResistanceControlled resistanceControlled(
-          Resistance(displayUnit="(mmHg.min)/l") = 799934324.49,
-          Q_nominal(displayUnit="l/min") = 8.3333333333333e-05,
-          tau=60)
-          annotation (Placement(transformation(extent={{-10,-12},{10,8}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=
-              13332.2387415)
-          annotation (Placement(transformation(extent={{-110,-12},{-90,8}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
-          annotation (Placement(transformation(extent={{110,-12},{90,8}})));
-        Components.Ascites_Resistance ascites_Resistance(
-          liverConductance(y=1),
-          Qnom(displayUnit="l/min") = 1.6666666666667e-05,
-          TIPSS(enable=true, Resistance=Modelica.Constants.inf),
-          Liver(
+          parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(5000*
+              0.2) "Nominal flow through the splanchnic circulation";
+          parameter Physiolibrary.Types.Pressure mmHg=133.322;
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+            annotation (Placement(transformation(extent={{110,-10},{90,10}})));
+          Physiolibrary.Hydraulic.Components.Resistor TIPSS(
             enable=true,
             useConductanceInput=false,
-            Resistance(displayUnit="(mmHg.min)/l") = 119990148.6735),
-          redeclare Components.ResistanceControlled IntestinesArt(
-            Resistance(displayUnit="(mmHg.min)/l") = 399967162.245,
-            Q_nominal(displayUnit="l/min") = 1.6666666666667e-05,
-            tau(displayUnit="s") = 1))
-          annotation (Placement(transformation(extent={{-10,-50},{10,-30}})));
-      equation
-        connect(unlimitedVolume1.y, resistanceControlled.q_in) annotation (Line(
-            points={{-90,-2},{-10,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(resistanceControlled.q_out, CVP.y) annotation (Line(
-            points={{10,-2},{90,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(ascites_Resistance.q_in, resistanceControlled.q_in) annotation (
-           Line(
-            points={{-10,-40},{-44,-40},{-44,-42},{-82,-42},{-82,-2},{-10,-2}},
-            color={0,0,0},
-            thickness=1));
+            Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5*1e15))
+            annotation (Placement(transformation(extent={{-2,-50},{18,-30}})));
+          Components.Ascites_Resistance ascites_Resistance
+            annotation (Placement(transformation(extent={{-2,-86},{18,-66}})));
+          Components.SplanchnicCirculation splanchnicCirculation
+            annotation (Placement(transformation(extent={{-2,-130},{18,-110}})));
+        equation
+          connect(Liver.cond, realExpression1.y) annotation (Line(points={{10,6},{
+                  10,14},{-4,14},{-4,28},{-11,28}},
+                                             color={0,0,127}));
+          connect(IntestinesArt.q_in, unlimitedVolume1.y) annotation (Line(
+              points={{-80,0},{-90,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, HV.q_out) annotation (Line(
+              points={{90,0},{72,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(TIPSS.q_in, IntestineVenule.q_out) annotation (Line(
+              points={{-2,-40},{-14,-40},{-14,2.22045e-16},{-20,2.22045e-16}},
+              color={0,0,0},
+              thickness=1));
+          connect(TIPSS.q_out, HV.q_in) annotation (Line(
+              points={{18,-40},{24,-40},{24,2.22045e-16},{52,2.22045e-16}},
+              color={0,0,0},
+              thickness=1));
+          connect(ascites_Resistance.q_in, unlimitedVolume1.y) annotation (Line(
+              points={{-2,-76},{-86,-76},{-86,0},{-90,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(ascites_Resistance.q_out, HV.q_out) annotation (Line(
+              points={{18,-76},{86,-76},{86,0},{72,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(splanchnicCirculation.q_out, HV.q_out) annotation (Line(
+              points={{18,-124},{34,-124},{34,-76},{86,-76},{86,0},{72,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(splanchnicCirculation.q_in, unlimitedVolume1.y) annotation (
+              Line(
+              points={{-2,-124},{-22,-124},{-22,-74},{-86,-74},{-86,0},{-90,0}},
+              color={0,0,0},
+              thickness=1));
+          annotation (Documentation(info="<html>
+<p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
+</html>"));
+        end Ascites_Resistance;
 
-        connect(ascites_Resistance.q_out, CVP.y) annotation (Line(
-            points={{10,-40},{74,-40},{74,-2},{90,-2}},
-            color={0,0,0},
-            thickness=1));
-        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)));
-      end ResistanceControlTest;
+        model TestResistance
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(
+              usePressureInput=true, P=13332.2387415)
+            annotation (Placement(transformation(extent={{-104,-10},{-84,10}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(usePressureInput=
+                true, P=666.611937075)
+            annotation (Placement(transformation(extent={{116,-10},{96,10}})));
+          Components.ResistancePressureDep resistancePressureDep_trans(
+            L=0.01,
+            R_nom=799934324.49,
+            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-07,
+            P_nom=13332.2387415,
+            side=Lymphatics.Hemodynamics.Components.SideEnum.Right,
+            useExternalCollapsingPressure=true,
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt,
+            r(start=0.0005973604195040681),
+            r_nom(start=0.0005973604195040681))
+            annotation (Placement(transformation(extent={{-10,-10},{10,10}})));
+          Modelica.Blocks.Sources.RealExpression realExpression(y=max(time, 5)*
+                133.322)
+            annotation (Placement(transformation(extent={{92,30},{112,50}})));
+          Modelica.Blocks.Sources.RealExpression realExpression1(y=(10*sin(6.28*
+                time) + 100)*133.322)
+            annotation (Placement(transformation(extent={{-144,34},{-124,54}})));
+          ResistancePressureDep resistancePressureDep_dp(
+            L=0.01,
+            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-12,
+            R_nom=799934324.49,
+            P_nom=13332.2387415,
+            r(start=0.0005973604195040681),
+            r_nom(start=0.0005973604195040681))
+            annotation (Placement(transformation(extent={{-10,22},{10,42}})));
+          ResistancePressureDep resistancePressureDep_shear(
+            L=0.01,
+            R_nom=799934324.49,
+            P_nom=13332.2387415,
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Shear,
+            r_nom(start=0.0005973604195040681))
+            annotation (Placement(transformation(extent={{-12,-40},{8,-20}})));
+          Modelica.Blocks.Sources.RealExpression realExpression2(y=10*133.322)
+            annotation (Placement(transformation(extent={{-42,4},{-22,24}})));
+        equation
+          connect(unlimitedVolume1.y, resistancePressureDep_trans.q_in)
+            annotation (Line(
+              points={{-84,0},{-10,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, resistancePressureDep_trans.q_out) annotation (Line(
+              points={{96,0},{10,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(realExpression.y, CVP.pressure) annotation (Line(points={{113,
+                  40},{150,40},{150,0},{116,0}}, color={0,0,127}));
+          connect(unlimitedVolume1.pressure, realExpression1.y) annotation (Line(
+                points={{-104,0},{-123,0},{-123,44}}, color={0,0,127}));
+          connect(unlimitedVolume1.y, resistancePressureDep_dp.q_in)
+            annotation (Line(
+              points={{-84,0},{-48,0},{-48,32},{-10,32}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, resistancePressureDep_dp.q_out) annotation (Line(
+              points={{96,0},{54,0},{54,32},{10,32}},
+              color={0,0,0},
+              thickness=1));
+          connect(unlimitedVolume1.y, resistancePressureDep_shear.q_in)
+            annotation (Line(
+              points={{-84,0},{-48,0},{-48,-30},{-12,-30}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, resistancePressureDep_shear.q_out) annotation (Line(
+              points={{96,0},{52,0},{52,-30},{8,-30}},
+              color={0,0,0},
+              thickness=1));
+          connect(realExpression2.y, resistancePressureDep_trans.P_ext)
+            annotation (Line(points={{-21,14},{-10,14},{-10,9}}, color={0,0,127}));
+          annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+                coordinateSystem(preserveAspectRatio=false)),
+            experiment(
+              StartTime=5,
+              StopTime=10,
+              Tolerance=1e-06,
+              __Dymola_Algorithm="Cvode"));
+        end TestResistance;
 
-      model TestComplianceTube
-        Components.ComplianceTube complianceTube(l=0.2, r_n(displayUnit="mm")=
-               0.003)
-          annotation (Placement(transformation(extent={{-8,-10},{12,10}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump(SolutionFlow(
-              displayUnit="ml/min")=1E-06)
-          annotation (Placement(transformation(extent={{-80,-10},{-60,10}})));
-        Physiolibrary.Hydraulic.Components.Resistor resistor(useConductanceInput=true)
-          annotation (Placement(transformation(extent={{-40,-10},{-20,10}})));
-        inner ADAN_main.Components.Settings
-                       settings(
-          phi0=0,
-          veins_UsePhiEffect=false,
-          veins_delayed_activation=false)
-          annotation (Placement(transformation(extent={{-88,46},{-68,66}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedOutflowPump
-          unlimitedOutflowPump(SolutionFlow=0)
-          annotation (Placement(transformation(extent={{64,-40},{84,-20}})));
-        Components.ResistancePressureDep resistancePressureDep(
-          R_nom(displayUnit="(mmHg.min)/ml") = 7999340.0,
-          L=0.2,
-          side=Lymphatics.Hemodynamics.Components.SideEnum.Left,
-          Comp(displayUnit="ml/mmHg") = 7.50062E-09,
-          r(start=0.001))
-          annotation (Placement(transformation(extent={{18,-40},{38,-20}})));
-      equation
-        connect(resistor.q_out, complianceTube.port_a) annotation (Line(
-            points={{-20,0},{-12,0},{2,0}},
-            color={0,0,0},
-            thickness=1,
-            smooth=Smooth.Bezier));
-        connect(resistor.q_in, unlimitedPump.q_out) annotation (Line(
-            points={{-40,0},{-60,0}},
-            color={0,0,0},
-            thickness=1,
-            smooth=Smooth.Bezier));
-        connect(complianceTube.hydraulicconductance, resistor.cond) annotation (Line(
-            points={{11,0},{20,0},{20,16},{-30,16},{-30,6}},
-            color={0,0,127},
-            smooth=Smooth.Bezier));
-        connect(resistancePressureDep.q_in, complianceTube.port_a) annotation (
-            Line(
-            points={{18,-30},{2,-30},{2,0}},
-            color={0,0,0},
-            thickness=1,
-            smooth=Smooth.Bezier));
-        connect(unlimitedOutflowPump.q_in, resistancePressureDep.q_out)
-          annotation (Line(
-            points={{64,-30},{38,-30}},
-            color={0,0,0},
-            thickness=1,
-            smooth=Smooth.Bezier));
-        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)));
-      end TestComplianceTube;
-    end Tests;
+        model AscitesResistanceBased
+          "Levitts ascites with nominal hemodynamics break down"
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume(P=666.611937075)
+            annotation (Placement(transformation(extent={{100,-10},{80,10}})));
+          AscitesLevitt.LevittCase1SsSiIo levittCase1SsSiIo
+            annotation (Placement(transformation(extent={{30,54},{50,74}})));
+          Physiolibrary.Hydraulic.Components.PumpPressureHead
+                            HV(useExternalCollapsingPressure=true, p_head0=-266.64477483)
+            "Hepatic vein (free)"
+            annotation (Placement(transformation(extent={{20,-10},{40,10}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure PRa "Right atrial pressure"
+            annotation (Placement(transformation(extent={{80,40},{60,60}})));
+          Physiolibrary.Hydraulic.Components.PumpPressureHead Liver(
+              useExternalPressureHead=true, p_head0=-799.93432449)
+            annotation (Placement(transformation(extent={{-20,-10},{0,10}})));
+          Physiolibrary.Hydraulic.Components.PumpPressureHead IntestineVenule(p_head0=-399.967162245)
+            "Intestinal venule pressure drop"
+            annotation (Placement(transformation(extent={{-60,-10},{-40,10}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure Ppv
+            annotation (Placement(transformation(extent={{-40,58},{-20,78}})));
+          Physiolibrary.Hydraulic.Components.PumpPressureHead IntestinesArt(p_head0=-11199.08054286)
+            "Intestinal Arteriole resistance"
+            annotation (Placement(transformation(extent={{-100,-10},{-80,10}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure Pc
+            annotation (Placement(transformation(extent={{-68,66},{-48,86}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure Phv
+            annotation (Placement(transformation(extent={{-2,50},{18,70}})));
+          Modelica.Blocks.Sources.RealExpression realExpression(y=-time*133.322)
+            annotation (Placement(transformation(extent={{-94,12},{-74,32}})));
+          parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(
+              5000*0.2) "Nominal flow through the splanchnic circulation";
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=
+                13332.2387415)
+            annotation (Placement(transformation(extent={{-130,-30},{-110,-10}})));
+          Physiolibrary.Hydraulic.Components.Resistor R_intestArt(Resistance=84*
+                mmHg/Qnom)
+            annotation (Placement(transformation(extent={{-100,-30},{-80,-10}})));
+          parameter Physiolibrary.Types.Pressure mmHg=133.322;
+          Physiolibrary.Hydraulic.Components.Resistor R_IntestVen(Resistance=3*mmHg
+                /Qnom)
+            annotation (Placement(transformation(extent={{-60,-30},{-40,-10}})));
+          Physiolibrary.Hydraulic.Components.Resistor R_liver(useConductanceInput=
+                true, Resistance=6*mmHg/Qnom)
+            annotation (Placement(transformation(extent={{-20,-10},{0,-30}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume2(P=
+                666.611937075)
+            annotation (Placement(transformation(extent={{100,-30},{80,-10}})));
+          Physiolibrary.Hydraulic.Components.PumpPressureHead PG_HV(
+              useExternalCollapsingPressure=true, p_head0=-266.64477483)
+            "Hepatic vein (free)"
+            annotation (Placement(transformation(extent={{20,-30},{40,-10}})));
+          Modelica.Blocks.Sources.RealExpression realExpression1(y=1/(time*mmHg/
+                Qnom))
+            annotation (Placement(transformation(extent={{-72,-70},{-52,-50}})));
+          Physiolibrary.Hydraulic.Components.Resistor R_shunt(Resistance(
+                displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5))
+            annotation (Placement(transformation(extent={{-18,-84},{2,-64}})));
+        equation
+          connect(unlimitedVolume.y, PRa.q_in) annotation (Line(
+              points={{80,0},{74,0},{74,44}},
+              color={0,0,0},
+              thickness=1));
+          connect(PRa.pressure, levittCase1SsSiIo.Pra) annotation (Line(points={{64,46},
+                  {56,46},{56,64},{50,64}}, color={0,0,127}));
+          connect(HV.q_out, unlimitedVolume.y) annotation (Line(
+              points={{40,0},{80,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(Liver.q_out, HV.q_in) annotation (Line(
+              points={{0,0},{20,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(IntestineVenule.q_out, Liver.q_in) annotation (Line(
+              points={{-40,0},{-20,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(Ppv.q_in, IntestineVenule.q_out) annotation (Line(
+              points={{-34,62},{-34,0},{-40,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(levittCase1SsSiIo.Pp, Ppv.pressure)
+            annotation (Line(points={{30,64},{-24,64}}, color={0,0,127}));
+          connect(IntestinesArt.q_out, IntestineVenule.q_in) annotation (Line(
+              points={{-80,0},{-60,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(IntestinesArt.q_out, Pc.q_in) annotation (Line(
+              points={{-80,0},{-62,0},{-62,70}},
+              color={0,0,0},
+              thickness=1));
+          connect(Liver.q_out,Phv. q_in) annotation (Line(
+              points={{0,0},{4,0},{4,54}},
+              color={0,0,0},
+              thickness=1));
+          connect(Phv.pressure, levittCase1SsSiIo.Phv)
+            annotation (Line(points={{14,56},{30,56}}, color={0,0,127}));
+          connect(Pc.pressure, levittCase1SsSiIo.Pc)
+            annotation (Line(points={{-52,72},{30,72}}, color={0,0,127}));
+          connect(Liver.p_headIn, realExpression.y) annotation (Line(points={{-10,10},
+                  {-10,22},{-73,22}},      color={0,0,127}));
+          connect(HV.EP, levittCase1SsSiIo.Pa) annotation (Line(points={{20,8},{20,
+                  40},{40,40},{40,56}}, color={0,0,127}));
+          connect(unlimitedVolume1.y, R_intestArt.q_in) annotation (Line(
+              points={{-110,-20},{-100,-20}},
+              color={0,0,0},
+              thickness=1));
+          connect(R_IntestVen.q_in, R_intestArt.q_out) annotation (Line(
+              points={{-60,-20},{-80,-20}},
+              color={0,0,0},
+              thickness=1));
+          connect(R_liver.q_in, R_IntestVen.q_out) annotation (Line(
+              points={{-20,-20},{-40,-20}},
+              color={0,0,0},
+              thickness=1));
+          connect(PG_HV.q_in, R_liver.q_out) annotation (Line(
+              points={{20,-20},{0,-20}},
+              color={0,0,0},
+              thickness=1));
+          connect(PG_HV.q_out, unlimitedVolume2.y) annotation (Line(
+              points={{40,-20},{80,-20}},
+              color={0,0,0},
+              thickness=1));
+          connect(PG_HV.EP, HV.EP) annotation (Line(points={{20,-12},{14,-12},{14,8},
+                  {20,8}}, color={0,0,127}));
+          connect(realExpression1.y, R_liver.cond) annotation (Line(points={{-51,
+                  -60},{-10,-60},{-10,-26}}, color={0,0,127}));
+          connect(R_shunt.q_in, R_IntestVen.q_out) annotation (Line(
+              points={{-18,-74},{-30,-74},{-30,-20},{-40,-20}},
+              color={0,0,0},
+              thickness=1));
+          connect(R_shunt.q_out, R_liver.q_out) annotation (Line(
+              points={{2,-74},{6,-74},{6,-20},{0,-20}},
+              color={0,0,0},
+              thickness=1));
+          annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+                coordinateSystem(preserveAspectRatio=false)),
+            experiment(
+              StartTime=6,
+              StopTime=25,
+              __Dymola_Algorithm="Dassl"));
+        end AscitesResistanceBased;
+
+        model ResistanceControlTest
+          Components.ResistanceControlled resistanceControlled(
+            Resistance(displayUnit="(mmHg.min)/l") = 799934324.49,
+            Q_nominal(displayUnit="l/min") = 8.3333333333333e-05,
+            tau=60)
+            annotation (Placement(transformation(extent={{-10,-12},{10,8}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(P=
+                13332.2387415)
+            annotation (Placement(transformation(extent={{-110,-12},{-90,8}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+            annotation (Placement(transformation(extent={{110,-12},{90,8}})));
+          Components.Ascites_Resistance ascites_Resistance(
+            liverConductance(y=1),
+            Qnom(displayUnit="l/min") = 1.6666666666667e-05,
+            TIPSS(enable=true, Resistance=Modelica.Constants.inf),
+            Liver(
+              enable=true,
+              useConductanceInput=false,
+              Resistance(displayUnit="(mmHg.min)/l") = 119990148.6735),
+            redeclare Components.ResistanceControlled IntestinesArt(
+              Resistance(displayUnit="(mmHg.min)/l") = 399967162.245,
+              Q_nominal(displayUnit="l/min") = 1.6666666666667e-05,
+              tau(displayUnit="s") = 1))
+            annotation (Placement(transformation(extent={{-10,-50},{10,-30}})));
+        equation
+          connect(unlimitedVolume1.y, resistanceControlled.q_in) annotation (Line(
+              points={{-90,-2},{-10,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(resistanceControlled.q_out, CVP.y) annotation (Line(
+              points={{10,-2},{90,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(ascites_Resistance.q_in, resistanceControlled.q_in) annotation (
+             Line(
+              points={{-10,-40},{-44,-40},{-44,-42},{-82,-42},{-82,-2},{-10,-2}},
+              color={0,0,0},
+              thickness=1));
+
+          connect(ascites_Resistance.q_out, CVP.y) annotation (Line(
+              points={{10,-40},{74,-40},{74,-2},{90,-2}},
+              color={0,0,0},
+              thickness=1));
+          annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+                coordinateSystem(preserveAspectRatio=false)));
+        end ResistanceControlTest;
+
+        model TestComplianceTube
+          Components.ComplianceTube complianceTube(l=0.2, r_n(displayUnit="mm")=
+                 0.003)
+            annotation (Placement(transformation(extent={{-8,-10},{12,10}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump(SolutionFlow(
+                displayUnit="ml/min")=1E-06)
+            annotation (Placement(transformation(extent={{-80,-10},{-60,10}})));
+          Physiolibrary.Hydraulic.Components.Resistor resistor(useConductanceInput=true)
+            annotation (Placement(transformation(extent={{-40,-10},{-20,10}})));
+          inner ADAN_main.Components.Settings
+                         settings(
+            phi0=0,
+            veins_UsePhiEffect=false,
+            veins_delayed_activation=false)
+            annotation (Placement(transformation(extent={{-88,46},{-68,66}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedOutflowPump
+            unlimitedOutflowPump(SolutionFlow=0)
+            annotation (Placement(transformation(extent={{64,-40},{84,-20}})));
+          Components.ResistancePressureDep resistancePressureDep(
+            R_nom(displayUnit="(mmHg.min)/ml") = 7999340.0,
+            L=0.2,
+            side=Lymphatics.Hemodynamics.Components.SideEnum.Left,
+            Comp(displayUnit="ml/mmHg") = 7.50062E-09,
+            r(start=0.001))
+            annotation (Placement(transformation(extent={{18,-40},{38,-20}})));
+        equation
+          connect(resistor.q_out, complianceTube.port_a) annotation (Line(
+              points={{-20,0},{-12,0},{2,0}},
+              color={0,0,0},
+              thickness=1,
+              smooth=Smooth.Bezier));
+          connect(resistor.q_in, unlimitedPump.q_out) annotation (Line(
+              points={{-40,0},{-60,0}},
+              color={0,0,0},
+              thickness=1,
+              smooth=Smooth.Bezier));
+          connect(complianceTube.hydraulicconductance, resistor.cond) annotation (Line(
+              points={{11,0},{20,0},{20,16},{-30,16},{-30,6}},
+              color={0,0,127},
+              smooth=Smooth.Bezier));
+          connect(resistancePressureDep.q_in, complianceTube.port_a) annotation (
+              Line(
+              points={{18,-30},{2,-30},{2,0}},
+              color={0,0,0},
+              thickness=1,
+              smooth=Smooth.Bezier));
+          connect(unlimitedOutflowPump.q_in, resistancePressureDep.q_out)
+            annotation (Line(
+              points={{64,-30},{38,-30}},
+              color={0,0,0},
+              thickness=1,
+              smooth=Smooth.Bezier));
+          annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+                coordinateSystem(preserveAspectRatio=false)));
+        end TestComplianceTube;
+      end Tests;
+
+      package Schematics
+        model ModelSchematics
+          AscitesLevitt.LevittCase1SsSiIo levittCase1SsSiIo
+            annotation (Placement(transformation(extent={{24,8},{44,28}})));
+          Physiolibrary.Hydraulic.Components.PumpPressureHead hepatic_vein(
+              useExternalCollapsingPressure=true, p_head0=-266.64477483)
+            "Hepatic vein (free)"
+            annotation (Placement(transformation(extent={{34,-12},{54,8}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure PRa "Right atrial pressure"
+            annotation (Placement(transformation(extent={{68,14},{48,34}})));
+          Physiolibrary.Hydraulic.Components.Resistor         Liver(
+              useConductanceInput=true, Resistance=6*mmHg/Qnom)
+            annotation (Placement(transformation(extent={{-24,-14},{-4,6}})));
+          Physiolibrary.Hydraulic.Components.Resistor Intest_Venules(Resistance=3
+                *mmHg/Qnom) "Intestinal venule pressure drop"
+            annotation (Placement(transformation(extent={{-54,-12},{-34,8}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure Ppv
+            annotation (Placement(transformation(extent={{-40,12},{-20,32}})));
+          Physiolibrary.Hydraulic.Components.Resistor Intest_Art(Resistance=84*
+                mmHg/Qnom) "Intestinal Arteriole resistance"
+            annotation (Placement(transformation(extent={{-82,-12},{-62,8}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure Pc
+            annotation (Placement(transformation(extent={{-62,6},{-42,26}})));
+          Physiolibrary.Hydraulic.Sensors.PressureMeasure Phv
+            annotation (Placement(transformation(extent={{6,-2},{26,18}})));
+          Modelica.Blocks.Sources.RealExpression HVPG_nominal(y=1/(time*mmHg/Qnom))
+            annotation (Placement(transformation(extent={{30,2},{10,-18}})));
+          replaceable Components.ResistancePressureDep Shunt(enable=true,
+              useConductanceInput=false) if useTIPPS constrainedby
+            Components.ResistancePressureDep
+            annotation (Placement(transformation(extent={{-24,2},{-4,22}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedPump pump(SolutionFlow(
+                displayUnit="l/min") = 1.6666666666667e-05)
+            annotation (Placement(transformation(extent={{-106,-12},{-86,8}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+            annotation (Placement(transformation(extent={{84,-12},{64,8}})));
+        equation
+          connect(PRa.pressure,levittCase1SsSiIo. Pra) annotation (Line(points={{52,20},
+                  {48,20},{48,18},{44,18}}, color={0,0,127}));
+          connect(Liver.q_out, hepatic_vein.q_in) annotation (Line(
+              points={{-4,-4},{6,-4},{6,-2},{34,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(Intest_Venules.q_out, Liver.q_in) annotation (Line(
+              points={{-34,-2},{-28,-2},{-28,-4},{-24,-4}},
+              color={0,0,0},
+              thickness=1));
+          connect(Ppv.q_in, Intest_Venules.q_out) annotation (Line(
+              points={{-34,16},{-34,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(levittCase1SsSiIo.Pp,Ppv. pressure)
+            annotation (Line(points={{24,18},{-24,18}}, color={0,0,127}));
+          connect(Intest_Art.q_out, Intest_Venules.q_in) annotation (Line(
+              points={{-62,-2},{-54,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(Intest_Art.q_out, Pc.q_in) annotation (Line(
+              points={{-62,-2},{-58,-2},{-58,10},{-56,10}},
+              color={0,0,0},
+              thickness=1));
+          connect(Liver.q_out,Phv. q_in) annotation (Line(
+              points={{-4,-4},{6,-4},{6,-2},{12,-2},{12,2}},
+              color={0,0,0},
+              thickness=1));
+          connect(Phv.pressure,levittCase1SsSiIo. Phv)
+            annotation (Line(points={{22,4},{22,10},{24,10}},
+                                                       color={0,0,127}));
+          connect(Pc.pressure,levittCase1SsSiIo. Pc)
+            annotation (Line(points={{-46,12},{-46,26},{24,26}},
+                                                        color={0,0,127}));
+          connect(hepatic_vein.EP, levittCase1SsSiIo.Pa)
+            annotation (Line(points={{34,6},{34,10}}, color={0,0,127}));
+          connect(PRa.q_in, hepatic_vein.q_out) annotation (Line(
+              points={{62,18},{62,-2},{54,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(Liver.cond, HVPG_nominal.y) annotation (Line(points={{-14,2},{4,
+                  2},{4,-8},{9,-8}}, color={0,0,127}));
+          connect(Shunt.q_in, Intest_Venules.q_out) annotation (Line(
+              points={{-24,12},{-28,12},{-28,-2},{-34,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(Shunt.q_out, hepatic_vein.q_in) annotation (Line(
+              points={{-4,12},{6,12},{6,-2},{34,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, hepatic_vein.q_out) annotation (Line(
+              points={{64,-2},{54,-2}},
+              color={0,0,0},
+              thickness=1));
+          connect(pump.q_out, Intest_Art.q_in) annotation (Line(
+              points={{-86,-2},{-82,-2}},
+              color={0,0,0},
+              thickness=1));
+          annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+                coordinateSystem(preserveAspectRatio=false), graphics={
+                Text(
+                  extent={{-112,2},{-82,14}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="1 L/min"),
+                Text(
+                  extent={{-92,-22},{-54,-10}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(84 mmHg)"),
+                Text(
+                  extent={{-62,-22},{-24,-10}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(3 mmHg)"),
+                Text(
+                  extent={{-36,-22},{16,-10}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(4-30 mmHg)"),
+                Text(
+                  extent={{54,-24},{92,-12}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="5 mmHg")}));
+        end ModelSchematics;
+
+        model HVPG_shuntsSchematics "Model for view not for simulation"
+          extends Components.partialAscites(
+            redeclare Physiolibrary.Hydraulic.Components.Resistor Liver(
+                useConductanceInput=true, Resistance=6*mmHg/Qnom),
+            redeclare Physiolibrary.Hydraulic.Components.Resistor IntestinesArt(
+                Resistance=84*mmHg/Qnom),
+            redeclare Physiolibrary.Hydraulic.Components.Resistor IntestineVenule(
+                Resistance=3*mmHg/Qnom));
+          Modelica.Blocks.Sources.RealExpression HVPG_nominal(y=1/(time*mmHg/Qnom))
+            annotation (Placement(transformation(extent={{-80,4},{-60,24}})));
+
+          parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(5000*
+              0.2) "Nominal flow through the splanchnic circulation";
+          parameter Physiolibrary.Types.Pressure mmHg=133.322;
+          replaceable Components.ResistancePressureDep collateralShunt(enable=
+                true, useConductanceInput=false) if useTIPPS constrainedby
+            Physiolibrary.Hydraulic.Interfaces.OnePort
+            annotation (Placement(transformation(extent={{0,-28},{20,-8}})));
+          parameter Boolean useTIPPS=false;
+          Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(
+              SolutionFlow(displayUnit="l/min") = 1.6666666666667e-05)
+            annotation (Placement(transformation(extent={{-108,-10},{-88,10}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+            annotation (Placement(transformation(extent={{108,-10},{88,10}})));
+        equation
+          connect(Liver.cond, HVPG_nominal.y)
+            annotation (Line(points={{10,6},{10,14},{-59,14}}, color={0,0,127}));
+          connect(collateralShunt.q_in, IntestineVenule.q_out) annotation (Line(
+              points={{0,-18},{-14,-18},{-14,0},{-20,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(collateralShunt.q_out, HV.q_in) annotation (Line(
+              points={{20,-18},{24,-18},{24,0},{52,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, HV.q_out) annotation (Line(
+              points={{88,0},{72,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(unlimitedPump.q_out, IntestinesArt.q_in) annotation (Line(
+              points={{-88,0},{-80,0}},
+              color={0,0,0},
+              thickness=1));
+          annotation (Documentation(info="<html>
+<p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
+</html>"),   Diagram(graphics={
+                Rectangle(
+                  extent={{-52,48},{48,-28}},
+                  lineColor={217,67,180},
+                  lineThickness=1),
+                Text(
+                  extent={{-114,4},{-84,16}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="1 L/min"),
+                Text(
+                  extent={{-90,-20},{-52,-8}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(84 mmHg)"),
+                Text(
+                  extent={{-50,-20},{-12,-8}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(3 mmHg)"),
+                Text(
+                  extent={{-96,22},{-44,34}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(4-30 mmHg)"),
+                Text(
+                  extent={{78,-24},{116,-12}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="5 mmHg")}));
+        end HVPG_shuntsSchematics;
+      end Schematics;
+
+      type RemodelingModel = enumeration(
+          Pd                                                                             "Pressure difference",
+          Pt                                "Transmural pressure",
+          Shear                                                                                                       "Shear stress",
+          Wt                                                          "Wall tension")
+            "Remodelling assumption for the shunt";
+    end Components;
 
     package Experiments
       model HVPG_shunts "Evaluation of shunts"
@@ -1798,206 +2097,6 @@ package Lymphatics
             __Dymola_Algorithm="Dassl"));
       end HVPG_shunts;
 
-      model ModelSchematics
-        AscitesLevitt.LevittCase1SsSiIo levittCase1SsSiIo
-          annotation (Placement(transformation(extent={{24,8},{44,28}})));
-        Physiolibrary.Hydraulic.Components.PumpPressureHead hepatic_vein(
-            useExternalCollapsingPressure=true, p_head0=-266.64477483)
-          "Hepatic vein (free)"
-          annotation (Placement(transformation(extent={{34,-12},{54,8}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure PRa "Right atrial pressure"
-          annotation (Placement(transformation(extent={{68,14},{48,34}})));
-        Physiolibrary.Hydraulic.Components.Resistor         Liver(
-            useConductanceInput=true, Resistance=6*mmHg/Qnom)
-          annotation (Placement(transformation(extent={{-24,-14},{-4,6}})));
-        Physiolibrary.Hydraulic.Components.Resistor Intest_Venules(Resistance=3
-              *mmHg/Qnom) "Intestinal venule pressure drop"
-          annotation (Placement(transformation(extent={{-54,-12},{-34,8}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure Ppv
-          annotation (Placement(transformation(extent={{-40,12},{-20,32}})));
-        Physiolibrary.Hydraulic.Components.Resistor Intest_Art(Resistance=84*
-              mmHg/Qnom) "Intestinal Arteriole resistance"
-          annotation (Placement(transformation(extent={{-82,-12},{-62,8}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure Pc
-          annotation (Placement(transformation(extent={{-62,6},{-42,26}})));
-        Physiolibrary.Hydraulic.Sensors.PressureMeasure Phv
-          annotation (Placement(transformation(extent={{6,-2},{26,18}})));
-        Modelica.Blocks.Sources.RealExpression HVPG_nominal(y=1/(time*mmHg/Qnom))
-          annotation (Placement(transformation(extent={{30,2},{10,-18}})));
-        replaceable Components.ResistancePressureDep Shunt(enable=true,
-            useConductanceInput=false) if useTIPPS constrainedby
-          Components.ResistancePressureDep
-          annotation (Placement(transformation(extent={{-24,2},{-4,22}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump pump(SolutionFlow(
-              displayUnit="l/min") = 1.6666666666667e-05)
-          annotation (Placement(transformation(extent={{-106,-12},{-86,8}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
-          annotation (Placement(transformation(extent={{84,-12},{64,8}})));
-      equation
-        connect(PRa.pressure,levittCase1SsSiIo. Pra) annotation (Line(points={{52,20},
-                {48,20},{48,18},{44,18}}, color={0,0,127}));
-        connect(Liver.q_out, hepatic_vein.q_in) annotation (Line(
-            points={{-4,-4},{6,-4},{6,-2},{34,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(Intest_Venules.q_out, Liver.q_in) annotation (Line(
-            points={{-34,-2},{-28,-2},{-28,-4},{-24,-4}},
-            color={0,0,0},
-            thickness=1));
-        connect(Ppv.q_in, Intest_Venules.q_out) annotation (Line(
-            points={{-34,16},{-34,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(levittCase1SsSiIo.Pp,Ppv. pressure)
-          annotation (Line(points={{24,18},{-24,18}}, color={0,0,127}));
-        connect(Intest_Art.q_out, Intest_Venules.q_in) annotation (Line(
-            points={{-62,-2},{-54,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(Intest_Art.q_out, Pc.q_in) annotation (Line(
-            points={{-62,-2},{-58,-2},{-58,10},{-56,10}},
-            color={0,0,0},
-            thickness=1));
-        connect(Liver.q_out,Phv. q_in) annotation (Line(
-            points={{-4,-4},{6,-4},{6,-2},{12,-2},{12,2}},
-            color={0,0,0},
-            thickness=1));
-        connect(Phv.pressure,levittCase1SsSiIo. Phv)
-          annotation (Line(points={{22,4},{22,10},{24,10}},
-                                                     color={0,0,127}));
-        connect(Pc.pressure,levittCase1SsSiIo. Pc)
-          annotation (Line(points={{-46,12},{-46,26},{24,26}},
-                                                      color={0,0,127}));
-        connect(hepatic_vein.EP, levittCase1SsSiIo.Pa)
-          annotation (Line(points={{34,6},{34,10}}, color={0,0,127}));
-        connect(PRa.q_in, hepatic_vein.q_out) annotation (Line(
-            points={{62,18},{62,-2},{54,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(Liver.cond, HVPG_nominal.y) annotation (Line(points={{-14,2},{4,
-                2},{4,-8},{9,-8}}, color={0,0,127}));
-        connect(Shunt.q_in, Intest_Venules.q_out) annotation (Line(
-            points={{-24,12},{-28,12},{-28,-2},{-34,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(Shunt.q_out, hepatic_vein.q_in) annotation (Line(
-            points={{-4,12},{6,12},{6,-2},{34,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(CVP.y, hepatic_vein.q_out) annotation (Line(
-            points={{64,-2},{54,-2}},
-            color={0,0,0},
-            thickness=1));
-        connect(pump.q_out, Intest_Art.q_in) annotation (Line(
-            points={{-86,-2},{-82,-2}},
-            color={0,0,0},
-            thickness=1));
-        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false), graphics={
-              Text(
-                extent={{-112,2},{-82,14}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="1 L/min"),
-              Text(
-                extent={{-92,-22},{-54,-10}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="(84 mmHg)"),
-              Text(
-                extent={{-62,-22},{-24,-10}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="(3 mmHg)"),
-              Text(
-                extent={{-36,-22},{16,-10}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="(4-30 mmHg)"),
-              Text(
-                extent={{54,-24},{92,-12}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="5 mmHg")}));
-      end ModelSchematics;
-
-      model HVPG_shuntsSchematics "Model for view not for simulation"
-        extends Components.partialAscites(
-          redeclare Physiolibrary.Hydraulic.Components.Resistor Liver(
-              useConductanceInput=true, Resistance=6*mmHg/Qnom),
-          redeclare Physiolibrary.Hydraulic.Components.Resistor IntestinesArt(
-              Resistance=84*mmHg/Qnom),
-          redeclare Physiolibrary.Hydraulic.Components.Resistor IntestineVenule(
-              Resistance=3*mmHg/Qnom));
-        Modelica.Blocks.Sources.RealExpression HVPG_nominal(y=1/(time*mmHg/Qnom))
-          annotation (Placement(transformation(extent={{-80,4},{-60,24}})));
-
-        parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(5000*
-            0.2) "Nominal flow through the splanchnic circulation";
-        parameter Physiolibrary.Types.Pressure mmHg=133.322;
-        replaceable Components.ResistancePressureDep collateralShunt(enable=
-              true, useConductanceInput=false) if useTIPPS constrainedby
-          Physiolibrary.Hydraulic.Interfaces.OnePort
-          annotation (Placement(transformation(extent={{0,-28},{20,-8}})));
-        parameter Boolean useTIPPS=false;
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(
-            SolutionFlow(displayUnit="l/min") = 1.6666666666667e-05)
-          annotation (Placement(transformation(extent={{-108,-10},{-88,10}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
-          annotation (Placement(transformation(extent={{108,-10},{88,10}})));
-      equation
-        connect(Liver.cond, HVPG_nominal.y)
-          annotation (Line(points={{10,6},{10,14},{-59,14}}, color={0,0,127}));
-        connect(collateralShunt.q_in, IntestineVenule.q_out) annotation (Line(
-            points={{0,-18},{-14,-18},{-14,0},{-20,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(collateralShunt.q_out, HV.q_in) annotation (Line(
-            points={{20,-18},{24,-18},{24,0},{52,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(CVP.y, HV.q_out) annotation (Line(
-            points={{88,0},{72,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(unlimitedPump.q_out, IntestinesArt.q_in) annotation (Line(
-            points={{-88,0},{-80,0}},
-            color={0,0,0},
-            thickness=1));
-        annotation (Documentation(info="<html>
-<p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
-</html>"), Diagram(graphics={
-              Rectangle(
-                extent={{-52,48},{48,-28}},
-                lineColor={217,67,180},
-                lineThickness=1),
-              Text(
-                extent={{-114,4},{-84,16}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="1 L/min"),
-              Text(
-                extent={{-90,-20},{-52,-8}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="(84 mmHg)"),
-              Text(
-                extent={{-50,-20},{-12,-8}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="(3 mmHg)"),
-              Text(
-                extent={{-96,22},{-44,34}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="(4-30 mmHg)"),
-              Text(
-                extent={{78,-24},{116,-12}},
-                textColor={28,108,200},
-                fontSize=14,
-                textString="5 mmHg")}));
-      end HVPG_shuntsSchematics;
-
       model HVPGShuntsComparison
         Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump1(
             SolutionFlow(displayUnit="l/min") = Inflow)
@@ -2008,43 +2107,25 @@ package Lymphatics
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump5(
             SolutionFlow(displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-60,40},{-40,60}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump6(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,10},{-40,30}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump7(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-20},{-40,0}})));
         Components.Ascites_Resistance ascites_NoShunts
           annotation (Placement(transformation(extent={{-20,100},{0,120}})));
         Components.Ascites_Resistance_Shunts ascites_Shunts(shunt(
-            Comp(displayUnit="ml/mmHg") = 7.50062E-08,
+            Comp=7.50062E-09,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom), useTIPPS=false)
           annotation (Placement(transformation(extent={{-20,40},{0,60}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntStiff(
           shunt(
-            Comp(displayUnit="ml/mmHg")=7.50062E-10,
+            Comp=3.75031E-09,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom= Shunt_R0nom),
           useTIPPS=false)
           annotation (Placement(transformation(extent={{-20,70},{0,90}})));
-        Components.Ascites_Resistance ascites_TIPPS(useTIPPS=true, TIPSS(
-              Resistance=R_TIPSS))
-          annotation (Placement(transformation(extent={{-20,10},{0,30}})));
-        Components.Ascites_Resistance_Shunts ascites_ShuntsAndTIPPS(
-          shunt(
-            Comp=Shunt_Compliance,
-            P_nom=Shunt_Pnom,
-            R_nom= Shunt_R0nom),
-          useTIPPS=true,
-          TIPSS(Resistance=R_TIPSS))
-          annotation (Placement(transformation(extent={{-20,-20},{0,0}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
         parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=
            1.6666666666667e-05   "Splanchnic perfusion";
-        parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
-            displayUnit="ml/mmHg")=7.50062e-07;
+        parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance=7.50062E-08;
         parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=
           1066.58    "Nominal end-point pressure";
         parameter Physiolibrary.Types.HydraulicResistance Shunt_R0nom(
@@ -2060,29 +2141,12 @@ package Lymphatics
             points={{0,110},{70,110},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_TIPPS.q_out, CVP.y) annotation (Line(
-            points={{0,20},{70,20},{70,0},{80,0}},
-            color={0,0,0},
-            thickness=1));
         connect(ascites_NoShunts.q_in, unlimitedPump1.q_out) annotation (Line(
             points={{-20,110},{-40,110}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_TIPPS.q_in,unlimitedPump6. q_out) annotation (Line(
-            points={{-20,20},{-40,20}},
-            color={0,0,0},
-            thickness=1));
         connect(ascites_Shunts.q_out, CVP.y) annotation (Line(
             points={{0,50},{70,50},{70,0},{80,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(ascites_ShuntsAndTIPPS.q_out, CVP.y) annotation (Line(
-            points={{0,-10},{70,-10},{70,0},{80,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(ascites_ShuntsAndTIPPS.q_in,unlimitedPump7. q_out) annotation (
-            Line(
-            points={{-20,-10},{-40,-10}},
             color={0,0,0},
             thickness=1));
         connect(unlimitedPump5.q_out, ascites_Shunts.q_in) annotation (Line(
@@ -2113,28 +2177,10 @@ package Lymphatics
       end HVPGShuntsComparison;
 
       model HVPGShuntsComparison_extended
-        extends HVPGShuntsComparison;
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump3(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-48},{-40,-28}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
-            SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-78},{-40,-58}})));
+        extends HVPGShuntsComparison(R_TIPSS(displayUnit="(mmHg.min)/l"));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume PA(P=13332.2387415)
           "Arterial pressure"
           annotation (Placement(transformation(extent={{-60,-110},{-40,-90}})));
-        Components.Ascites_Resistance_Shunts ascites_ShuntLinear(shunt(
-            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-15,
-            P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            R_nom(displayUnit="(mmHg.min)/l") = Shunt_R0nom),
-                                                     useTIPPS=false)
-          annotation (Placement(transformation(extent={{-20,-48},{0,-28}})));
-        Components.Ascites_Resistance_Shunts ascites_ShuntsNoCollapse(shunt(
-            Comp(displayUnit="ml/mmHg") = 7.5006157584566e-07,
-            P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            useExternalCollapsingPressure=false,
-            R_nom=Shunt_R0nom),                   useTIPPS=false)
-          annotation (Placement(transformation(extent={{-20,-78},{0,-58}})));
         Components.Ascites_Resistance_Shunts ascites_Shunts_FixedPressure(
           shunt(
             Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
@@ -2146,8 +2192,8 @@ package Lymphatics
           annotation (Placement(transformation(extent={{-20,-110},{0,-90}})));
         parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=1.6666666666667e-05
                                  "Splanchnic perfusion";
-        parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
-            displayUnit="ml/mmHg")=7.50062e-07;
+      //  parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
+      //      displayUnit="ml/mmHg")=7.50062e-07;
         parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=1066.58
                      "Nominal end-point pressure";
         parameter Physiolibrary.Types.HydraulicResistance Shunt_R0nom(displayUnit="(mmHg.min)/l")=
@@ -2157,48 +2203,42 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure intestinalPressureDrop(displayUnit="mmHg")=
            11199.08054286
           "Pressure drop at intestinal arteries";
-        Components.Ascites_Resistance_Shunts ascites_EsophagealShunt(
-          esophageal_thoracic(
-            Comp(displayUnit="ml/mmHg") = 7.50062E-08,
-            P_nom(displayUnit="mmHg") = 266.645,
-            R_nom(displayUnit="(mmHg.min)/ml") = 79993400000000.0),
-          shunt(
-            Comp(displayUnit="ml/mmHg") = Shunt_Compliance,
-            P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            R_nom=Shunt_R0nom),
-          useTIPPS=false,
-          levittCase1SsSiIo(D(displayUnit="l/mmHg") = 9.00074E-06),
-          esophageal_abdominal(R_nom(displayUnit="(mmHg.min)/l") = 7999340.0))
-          annotation (Placement(transformation(extent={{-20,-140},{0,-120}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump8(SolutionFlow(
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump3(SolutionFlow(
               displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-140},{-40,-120}})));
-        Components.Ascites_Resistance_Shunts ascites_EsophagealShuntOnly(
-          esophageal_thoracic(
-            Comp(displayUnit="ml/mmHg") = 3.75031E-07,
-            P_nom(displayUnit="mmHg") = 266.645,
-            R_nom(displayUnit="(mmHg.min)/ml") = 79993400000.0),
-          shunt(
-            Comp(displayUnit="ml/mmHg") = 1e-9,
-            P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            R_nom=Shunt_R0nom),
-          useTIPPS=false,
-          levittCase1SsSiIo(D(displayUnit="l/mmHg") = 9.00074E-06),
-          esophageal_abdominal(R_nom(displayUnit="(mmHg.min)/l") = 7999340.0))
-          annotation (Placement(transformation(extent={{-20,-168},{0,-148}})));
-        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump9(SolutionFlow(
+          annotation (Placement(transformation(extent={{-60,-50},{-40,-30}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(SolutionFlow(
               displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-168},{-40,-148}})));
+          annotation (Placement(transformation(extent={{-60,-80},{-40,-60}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts_TIPS_acute(shunt(
+            Comp=7.50062e-09,
+            d=ascites_Shunts.shunt.d,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            UsePrescribedDiameter=true), useTIPPS=true)
+          annotation (Placement(transformation(extent={{-20,-80},{0,-60}})));
+        Components.Ascites_Resistance_Shunts ascites_ShuntStiff_TIPS_acute(shunt(
+            Comp=3.75031e-09,
+            d=ascites_ShuntStiff.shunt.d,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            UsePrescribedDiameter=true), useTIPPS=true)
+          annotation (Placement(transformation(extent={{-20,-50},{0,-30}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump6(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,10},{-40,30}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump7(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-20},{-40,0}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts_TIPS_remodel(useTIPPS=
+              true)
+          annotation (Placement(transformation(extent={{-20,-20},{0,0}})));
+        Components.Ascites_Resistance_Shunts ascites_TIPS(shunt(
+            Comp(displayUnit="m3/Pa") = 1e-12,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom(displayUnit="(mmHg.min)/l") = 7.9993432449e+16), useTIPPS=
+              true)
+          annotation (Placement(transformation(extent={{-20,10},{0,30}})));
       equation
-        connect(ascites_ShuntLinear.q_out, CVP.y) annotation (Line(
-            points={{0,-38},{70,-38},{70,0},{80,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(ascites_ShuntLinear.q_in,unlimitedPump3. q_out) annotation (
-            Line(
-            points={{-20,-38},{-40,-38}},
-            color={0,0,0},
-            thickness=1));
         connect(PA.y, ascites_Shunts_FixedPressure.q_in) annotation (Line(
             points={{-40,-100},{-20,-100}},
             color={0,0,0},
@@ -2208,30 +2248,39 @@ package Lymphatics
             points={{0,-100},{70,-100},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_ShuntsNoCollapse.q_out, CVP.y) annotation (Line(
-            points={{0,-68},{70,-68},{70,0},{80,0}},
+        connect(ascites_Shunts_TIPS_acute.q_out, CVP.y) annotation (Line(
+            points={{0,-70},{70,-70},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_ShuntsNoCollapse.q_in, unlimitedPump4.q_out)
+        connect(unlimitedPump4.q_out, ascites_Shunts_TIPS_acute.q_in)
           annotation (Line(
-            points={{-20,-68},{-40,-68}},
+            points={{-40,-70},{-20,-70}},
             color={0,0,0},
             thickness=1));
-        connect(unlimitedPump8.q_out, ascites_EsophagealShunt.q_in) annotation (Line(
-            points={{-40,-130},{-20,-130}},
+        connect(unlimitedPump3.q_out, ascites_ShuntStiff_TIPS_acute.q_in)
+          annotation (Line(
+            points={{-40,-40},{-20,-40}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_EsophagealShunt.q_out, CVP.y) annotation (Line(
-            points={{0,-130},{70,-130},{70,0},{80,0}},
+        connect(ascites_ShuntStiff_TIPS_acute.q_out, CVP.y) annotation (Line(
+            points={{0,-40},{70,-40},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(unlimitedPump9.q_out, ascites_EsophagealShuntOnly.q_in) annotation (
-            Line(
-            points={{-40,-158},{-20,-158}},
+        connect(ascites_Shunts_TIPS_remodel.q_out, CVP.y) annotation (Line(
+            points={{0,-10},{70,-10},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_EsophagealShuntOnly.q_out, CVP.y) annotation (Line(
-            points={{0,-158},{70,-158},{70,0},{80,0}},
+        connect(unlimitedPump7.q_out, ascites_Shunts_TIPS_remodel.q_in)
+          annotation (Line(
+            points={{-40,-10},{-20,-10}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump6.q_out, ascites_TIPS.q_in) annotation (Line(
+            points={{-40,20},{-20,20}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_TIPS.q_out, CVP.y) annotation (Line(
+            points={{0,20},{70,20},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
         annotation (
@@ -2251,18 +2300,8 @@ package Lymphatics
       end HVPGShuntsComparison_extended;
 
       model HVPGShuntsComparison_Size
-        extends HVPGShuntsComparison(
-          ascites_TIPPS(
-            Liver(useConductanceInput=true, Resistance=199983581122.5),
-            TIPSS(useConductanceInput=true, Resistance=199983581.1225),
-            tipssConductance(
-                            y=hagenPoiseulleConductance.hydraulicconductance)),
-          ascites_NoShunts(Liver(useConductanceInput=true, Resistance(
-                  displayUnit="(mmHg.min)/l") = 199983581.1225)),
-          ascites_ShuntsAndTIPPS(
-              TIPSS(useConductanceInput=true),
-                                 tipssConductance(
-                                                 y=hagenPoiseulleConductance.hydraulicconductance)));
+        extends HVPGShuntsComparison(ascites_NoShunts(Liver(useConductanceInput
+                =true, Resistance(displayUnit="(mmHg.min)/l") = 199983581.1225)));
 
         Components.HagenPoiseulleConductance hagenPoiseulleConductance(
           d_nominal(displayUnit="mm") = 0.0045,
@@ -2283,11 +2322,6 @@ package Lymphatics
             Tolerance=1e-06,
             __Dymola_Algorithm="Euler"));
       end HVPGShuntsComparison_Size;
-
-      model CVS_GCG_Ascites
-
-        annotation (experiment(StopTime=2500, __Dymola_Algorithm="Dassl"));
-      end CVS_GCG_Ascites;
 
       model CardiovascularSystem_GCG_Asc
         "Cardiovascular part of Guyton-Coleman-Granger's model from 1972"
@@ -2628,70 +2662,65 @@ package Lymphatics
       end AscitesPhases;
 
       model HVPGShuntsComparison_Shear
-        extends HVPGShuntsComparison;
+        extends HVPGShuntsComparison(ascites_Shunts(shunt(rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt)));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump3(
             SolutionFlow(displayUnit="l/min") = Inflow)
-          annotation (Placement(transformation(extent={{-60,-50},{-40,-30}})));
-        Components.Ascites_Resistance_Shunts ascites_ShuntStiff1(shunt(
+          annotation (Placement(transformation(extent={{-60,-60},{-40,-40}})));
+        Components.Ascites_Resistance_Shunts ascites_ShuntStiff_dp(shunt(
             Comp(displayUnit="ml/mmHg") = 7.50062e-10,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
-            useShearRemodelling=true), useTIPPS=false)
-          annotation (Placement(transformation(extent={{-20,-50},{0,-30}})));
-        Components.ResistancePressureDep
-                              shunt(
-          Comp(displayUnit="ml/mmHg") = 7.50062e-10,
-          P_nom(displayUnit="mmHg") = Shunt_Pnom,
-          R_nom(displayUnit="(mmHg.min)/ml") = Shunt_R0nom,
-          useShearRemodelling=true,
-          side=Lymphatics.Hemodynamics.Components.SideEnum.Central,
-          useExternalCollapsingPressure=false)
-          annotation (Placement(transformation(extent={{-20,-80},{0,-60}})));
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pd), useTIPPS
+            =false)
+          annotation (Placement(transformation(extent={{-20,-60},{0,-40}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
-            useSolutionFlowInput=true, SolutionFlow(displayUnit="l/min") =
-            Inflow)
-          annotation (Placement(transformation(extent={{-60,-80},{-40,-60}})));
-        Modelica.Blocks.Sources.RealExpression q_shutn(y=ascites_Shunts.shunt.q_in.q)
-          annotation (Placement(transformation(extent={{-98,-66},{-78,-46}})));
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-100},{-40,-80}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunt_shear(shunt(
+            Comp(displayUnit="ml/mmHg") = 7.50062e-10,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Shear),
+            useTIPPS=false)
+          annotation (Placement(transformation(extent={{-20,-100},{0,-80}})));
       equation
-        connect(unlimitedPump3.q_out, ascites_ShuntStiff1.q_in) annotation (
+        connect(unlimitedPump3.q_out, ascites_ShuntStiff_dp.q_in) annotation (
             Line(
-            points={{-40,-40},{-20,-40}},
+            points={{-40,-50},{-20,-50}},
             color={0,0,0},
             thickness=1));
-        connect(ascites_ShuntStiff1.q_out, CVP.y) annotation (Line(
-            points={{0,-40},{70,-40},{70,0},{80,0}},
+        connect(ascites_ShuntStiff_dp.q_out, CVP.y) annotation (Line(
+            points={{0,-50},{70,-50},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(unlimitedPump4.q_out, shunt.q_in) annotation (Line(
-            points={{-40,-70},{-20,-70}},
+        connect(unlimitedPump4.q_out, ascites_Shunt_shear.q_in) annotation (
+            Line(
+            points={{-40,-90},{-20,-90}},
             color={0,0,0},
             thickness=1));
-        connect(shunt.q_out, CVP.y) annotation (Line(
-            points={{0,-70},{70,-70},{70,0},{80,0}},
+        connect(ascites_Shunt_shear.q_out, CVP.y) annotation (Line(
+            points={{0,-90},{70,-90},{70,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(q_shutn.y, unlimitedPump4.solutionFlow) annotation (Line(points
-              ={{-77,-56},{-50,-56},{-50,-63}}, color={0,0,127}));
       end HVPGShuntsComparison_Shear;
 
       model TipsFlow
         Modelica.Fluid.Sources.Boundary_pT boundary1(redeclare package Medium =
               Medium,
           p=Medium.p_default,
-                      nPorts=1) annotation (Placement(transformation(
+          nPorts=3)             annotation (Placement(transformation(
               extent={{-10,-10},{10,10}},
               rotation=180,
-              origin={76,10})));
+              origin={70,30})));
         inner Modelica.Fluid.System system
-          annotation (Placement(transformation(extent={{-80,68},{-60,88}})));
+          annotation (Placement(transformation(extent={{-100,80},{-80,100}})));
         Modelica.Fluid.Pipes.StaticPipe pipe(
           redeclare package Medium = Medium,
-          length=0.01,
+          length(displayUnit="cm") = L,
           diameter=diameter,
           redeclare model FlowModel =
               Modelica.Fluid.Pipes.BaseClasses.FlowModels.DetailedPipeFlow (show_Res=true))
-          annotation (Placement(transformation(extent={{-40,0},{-20,20}})));
+          annotation (Placement(transformation(extent={{-18,20},{2,40}})));
         replaceable package Medium =
             Modelica.Media.Incompressible.Examples.Glycol47
           constrainedby Modelica.Media.Interfaces.PartialMedium annotation (
@@ -2700,7 +2729,8 @@ package Lymphatics
           redeclare package Medium = Medium,
           use_m_flow_in=false,
           m_flow(displayUnit="kg/min") = 0.016666666666667,
-          nPorts=1) annotation (Placement(transformation(extent={{-82,0},{-62,20}})));
+          nPorts=1) annotation (Placement(transformation(extent={{-80,20},{-60,
+                  40}})));
 
       Physiolibrary.Types.Pressure dp = pipe.port_a.p - pipe.port_b.p;
       Real dp_pipe_mmHg = (pipe.port_a.p - pipe.port_b.p)/133.322;
@@ -2713,7 +2743,7 @@ package Lymphatics
         Components.HagenPoiseulleConductance hagenPoiseulleConductance(
           d_nominal(displayUnit="mm") = diameter,
           mu=5e-3,
-          L=0.01,
+          L=L,
           useNominalDiameter=true,
           q_nominal=1.6666666666667e-06)
           annotation (Placement(transformation(extent={{-34,-76},{-14,-56}})));
@@ -2723,11 +2753,33 @@ package Lymphatics
           "Diameter of circular pipe";
           parameter Real d_mm = 1;
 
+        Modelica.Fluid.Sources.MassFlowSource_T boundary3(
+          redeclare package Medium = Medium,
+          use_m_flow_in=false,
+          m_flow(displayUnit="kg/min") = 0.016666666666667,
+          nPorts=1) annotation (Placement(transformation(extent={{-80,48},{-60,
+                  68}})));
+        Modelica.Fluid.Fittings.Orifices.ThickEdgedOrifice thickEdgedOrifice1(
+            redeclare package Medium = Medium, geometry=
+              Modelica.Fluid.Fittings.BaseClasses.Orifices.ThickEdgedOrifice.Choices.circular(
+                    diameter*2,
+                    diameter,
+                    L))
+          annotation (Placement(transformation(extent={{-20,48},{0,68}})));
+        Modelica.Fluid.Sources.MassFlowSource_T boundary4(
+          redeclare package Medium = Medium,
+          use_m_flow_in=false,
+          m_flow(displayUnit="kg/min") = 0.016666666666667,
+          nPorts=1) annotation (Placement(transformation(extent={{-80,-10},{-60,
+                  10}})));
+        Modelica.Fluid.Fittings.Bends.CurvedBend curvedBend(redeclare package
+            Medium = Medium, geometry(
+            d_hyd=diameter,
+            R_0(displayUnit="m") = sqrt(360/60*L/3.14),
+            delta(displayUnit="deg") = 1.0471975511966))
+          annotation (Placement(transformation(extent={{-20,-10},{0,10}})));
+        parameter Physiolibrary.Types.Length L=0.01;
       equation
-        connect(pipe.port_b, boundary1.ports[1]) annotation (Line(points={{-20,10},{23,
-                10},{23,10},{66,10}}, color={0,127,255}));
-        connect(boundary2.ports[1], pipe.port_a)
-          annotation (Line(points={{-62,10},{-40,10}}, color={0,127,255}));
         connect(unlimitedPump7.q_out, conductor.q_in) annotation (Line(
             points={{-58,-40},{-38,-40},{-38,-32},{-32,-32}},
             color={0,0,0},
@@ -2739,9 +2791,69 @@ package Lymphatics
         connect(hagenPoiseulleConductance.hydraulicconductance, conductor.cond)
           annotation (Line(points={{-13.8,-66},{-4,-66},{-4,-64},{10,-64},{10,-18},{-22,
                 -18},{-22,-26}}, color={0,0,127}));
+        connect(boundary3.ports[1], thickEdgedOrifice1.port_a)
+          annotation (Line(points={{-60,58},{-20,58}}, color={0,127,255}));
+        connect(boundary2.ports[1], pipe.port_a)
+          annotation (Line(points={{-60,30},{-18,30}}, color={0,127,255}));
+        connect(thickEdgedOrifice1.port_b, boundary1.ports[1]) annotation (Line(
+              points={{0,58},{50,58},{50,31.3333},{60,31.3333}}, color={0,127,
+                255}));
+        connect(pipe.port_b, boundary1.ports[2]) annotation (Line(points={{2,30},
+                {32,30},{32,30},{60,30}}, color={0,127,255}));
+        connect(boundary4.ports[1], curvedBend.port_a)
+          annotation (Line(points={{-60,0},{-20,0}}, color={0,127,255}));
+        connect(boundary1.ports[3], curvedBend.port_b) annotation (Line(points=
+                {{60,28.6667},{8,28.6667},{8,0},{0,0}}, color={0,127,255}));
         annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
               coordinateSystem(preserveAspectRatio=false)));
       end TipsFlow;
+
+      model HVPGShuntsComparison_transmural
+        "Comparison remodeling sensitivity to dP and P_transmural"
+        extends HVPGShuntsComparison;
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump3(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-50},{-40,-30}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,-80},{-40,-60}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts_transm(shunt(
+            Comp=7.50062e-09,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            useExternalCollapsingPressure=true,
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS
+            =false)
+          annotation (Placement(transformation(extent={{-20,-80},{0,-60}})));
+        Components.Ascites_Resistance_Shunts ascites_ShuntStiff_transm(shunt(
+            useConductanceInput=true,
+            Comp=3.75031e-09,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            useExternalCollapsingPressure=true,
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS
+            =false)
+          annotation (Placement(transformation(extent={{-20,-50},{0,-30}})));
+      equation
+        connect(ascites_Shunts_transm.q_out, CVP.y) annotation (Line(
+            points={{0,-70},{70,-70},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump4.q_out, ascites_Shunts_transm.q_in) annotation (
+            Line(
+            points={{-40,-70},{-20,-70}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump3.q_out, ascites_ShuntStiff_transm.q_in)
+          annotation (Line(
+            points={{-40,-40},{-20,-40}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntStiff_transm.q_out, CVP.y) annotation (Line(
+            points={{0,-40},{70,-40},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+      end HVPGShuntsComparison_transmural;
     end Experiments;
   end Hemodynamics;
 

@@ -13,3 +13,5 @@
 *.asv
 ~$*.*
 *.tmp
+Scripts/Distribution/*.*
+*.dll
