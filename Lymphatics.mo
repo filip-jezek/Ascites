@@ -2238,6 +2238,32 @@ package Lymphatics
             R_nom(displayUnit="(mmHg.min)/l") = 7.9993432449e+16), useTIPPS=
               true)
           annotation (Placement(transformation(extent={{-20,10},{0,30}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume PA1(usePressureInput=
+              true, P=13332.2387415)
+          "Arterial pressure"
+          annotation (Placement(transformation(extent={{-60,-140},{-40,-120}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts_TIPS_acute_presssure(shunt(
+            Comp=7.50062e-09,
+            d=ascites_Shunts.shunt.d,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            UsePrescribedDiameter=true), useTIPPS=true)
+          annotation (Placement(transformation(extent={{-20,-140},{0,-120}})));
+        Modelica.Blocks.Sources.RealExpression ShuntsPressure(y=ascites_Shunts.q_in.pressure)
+          annotation (Placement(transformation(extent={{-100,-140},{-80,-120}})));
+        Components.Ascites_Resistance_Shunts ascites_TIPS_pressure(shunt(
+            Comp(displayUnit="m3/Pa") = 1e-12,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom(displayUnit="(mmHg.min)/l") = 7.9993432449e+16), useTIPPS=
+              true)
+          annotation (Placement(transformation(extent={{-20,-170},{0,-150}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume PA2(usePressureInput=
+              true, P=13332.2387415)
+          "Arterial pressure"
+          annotation (Placement(transformation(extent={{-60,-170},{-40,-150}})));
+        Modelica.Blocks.Sources.RealExpression NoShuntsPressure(y=
+              ascites_NoShunts.q_in.pressure) annotation (Placement(
+              transformation(extent={{-100,-170},{-80,-150}})));
       equation
         connect(PA.y, ascites_Shunts_FixedPressure.q_in) annotation (Line(
             points={{-40,-100},{-20,-100}},
@@ -2281,6 +2307,29 @@ package Lymphatics
             thickness=1));
         connect(ascites_TIPS.q_out, CVP.y) annotation (Line(
             points={{0,20},{70,20},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(PA1.y, ascites_Shunts_TIPS_acute_presssure.q_in) annotation (
+            Line(
+            points={{-40,-130},{-20,-130}},
+            color={0,0,0},
+            thickness=1));
+        connect(CVP.y, ascites_Shunts_TIPS_acute_presssure.q_out) annotation (
+            Line(
+            points={{80,0},{70,0},{70,-130},{0,-130}},
+            color={0,0,0},
+            thickness=1));
+        connect(ShuntsPressure.y, PA1.pressure)
+          annotation (Line(points={{-79,-130},{-60,-130}}, color={0,0,127}));
+        connect(NoShuntsPressure.y, PA2.pressure)
+          annotation (Line(points={{-79,-160},{-60,-160}}, color={0,0,127}));
+        connect(PA2.y, ascites_TIPS_pressure.q_in) annotation (Line(
+            points={{-40,-160},{-20,-160}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_TIPS_pressure.q_out,
+          ascites_Shunts_TIPS_acute_presssure.q_out) annotation (Line(
+            points={{0,-160},{70,-160},{70,-130},{0,-130}},
             color={0,0,0},
             thickness=1));
         annotation (
