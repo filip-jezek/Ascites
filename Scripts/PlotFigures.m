@@ -275,12 +275,12 @@ xlabel('Liver resistance (mmHg.L/min)')
 figure(5);clf;
 set(gcf, 'Position', [440  360  1000  400])
 subplot(131);cla;hold on;
-plot(R_liver(inds), - hvpg_ns(inds) + hvpg_tips(inds), 'x', 'Color', color_s, 'Linewidth', ms, 'MarkerSize', ms/2)
 plot(R_liver(inds), - hvpg_sres(inds) + hvpg_sres_tips(inds), 'o', 'Color', color_b, 'Linewidth', ms/2, 'MarkerSize', ms/2)
 plot(R_liver(inds), - hvpg_snres(inds) + hvpg_snres_tips(inds), 's', 'Color', color_r, 'Linewidth', ms/2, 'MarkerSize', ms/2)
+plot(R_liver(inds), - hvpg_ns(inds) + hvpg_tips(inds), 'x', 'Color', color_s, 'Linewidth', ms, 'MarkerSize', ms/2)
 xlim([14, 35]);
 title('HVPG drop after TIPS placement');
-legend('No shunts', 'Remodeling sensitive', 'Remodeling insensitive');
+legend('HVPG sensitive', 'HVPG insensitive', 'No shunts', 'location', 'southwest');
 ylabel('(mmHg)');
 xlabel('Liver resistance (mmHg.L/min)')
 
@@ -293,18 +293,40 @@ plot(R_liver(inds), q_liver_tips(inds), 'x', 'Color', color_s, 'Linewidth', ms, 
 plot(R_liver(inds), q_liver_sres_tips(inds), 'o', 'Color', color_b, 'Linewidth', ms/2, 'MarkerSize', ms/2)
 plot(R_liver(inds), q_liver_snres_tips(inds), 's', 'Color', color_r, 'Linewidth', ms/2, 'MarkerSize', ms/2)
 xlim([14, 35]);
+ylim([0.1, 1.02])
 title('Liver flow before and after TIPS');
 xlabel('Liver resistance (mmHg.L/min)');
 ylabel('(L/min)');
-legend('No shunt, before TIPS', 'Sensitive, Before TIPS', 'Insensitive, Before TIPS', 'No shunt, after TIPS', 'Sensitive, after TIPS','Insensitive, after TIPS')
+% legend('No shunt, before TIPS', 'Sensitive, Before TIPS', 'Insensitive, Before TIPS', 'No shunt, after TIPS', 'Sensitive, after TIPS','Insensitive, after TIPS')
+
+%% fake legend
+axes('position',[0.45 0.4 0.15 0.1]); cla;hold on;
+d = 1;
+plot(d, 1, 'x', 'Color', color_s, 'Linewidth', 2, 'MarkerSize', ms)
+plot(2*d, 1, 'o', 'Color', color_b, 'Linewidth', 2, 'MarkerSize', ms)
+plot(3*d, 1, 's', 'Color', color_r, 'Linewidth', 2, 'MarkerSize', ms)
+text(4*d, 1, 'Before TIPS');
+
+plot(1*d, 0, 'x', 'Color', color_s, 'Linewidth', ms, 'MarkerSize', ms/2)
+plot(2*d, 0, 'o', 'Color', color_b, 'Linewidth', ms/2, 'MarkerSize', ms/2)
+plot(3*d, 0, 's', 'Color', color_r, 'Linewidth', ms/2, 'MarkerSize', ms/2)
+text(4*d, 0, 'After TIPS');
+xlim([0, 10])
+ylim([-0.5, 1.5]);
+set(gca,'xtick',[])
+set(gca,'xticklabel',[])
+set(gca,'ytick',[])
+set(gca,'yticklabel',[])
+box on;
+
 
 %%
 subplot(133);cla;hold on;
-plot(R_liver(inds), q_liver_tips(inds)./1*100, 'x', 'Color', color_s, 'Linewidth', ms, 'MarkerSize', ms/2);
-plot(R_liver(inds), q_liver_snres_tips(inds)./q_liver_snres(inds)*100, 's', 'Color', color_r, 'Linewidth', ms/2, 'MarkerSize', ms/2);
-plot(R_liver(inds), q_liver_sres_tips(inds)./q_liver_sres(inds)*100, 'o', 'Color', color_b, 'Linewidth', ms/2, 'MarkerSize', ms/2);
+plot(R_liver(inds), -100 + q_liver_tips(inds)./1*100, 'x', 'Color', color_s, 'Linewidth', ms, 'MarkerSize', ms/2);
+plot(R_liver(inds), -100 + q_liver_snres_tips(inds)./q_liver_snres(inds)*100, 's', 'Color', color_r, 'Linewidth', ms/2, 'MarkerSize', ms/2);
+plot(R_liver(inds), -100 + q_liver_sres_tips(inds)./q_liver_sres(inds)*100, 'o', 'Color', color_b, 'Linewidth', ms/2, 'MarkerSize', ms/2);
 xlim([14, 35]);
-title('Fraction of liver flow after TIPS');
+title('Liver flow decrease after TIPS');
 xlabel('Liver resistance (mmHg.L/min)');
-ylabel('% of liver flow after TIPS');
-legend('No shunts', 'remodelling insensitive', 'remodelling sensitive')
+ylabel('(%)');
+% legend('No shunts', 'remodelling insensitive', 'remodelling sensitive')
