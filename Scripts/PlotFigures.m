@@ -1,4 +1,4 @@
-savefigs  = 1;
+savefigs  = 0;
 %% Plots figures for the paper
 color_schema;
 
