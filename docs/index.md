@@ -14,7 +14,7 @@ The model implemented in Modelica is available at [github repository](https://gi
 
 
 ## Model overview
-![alt](Figure1.png =200x)
+![Figure1 - model overview](Figure1.png)
 **Anatomy (A) and model setup (B) of the base model (without the TIPS). (a) intestines, (b) portal vein, (c) liver (d) shunt, (e) inf. vena cava (f) abdominal cavity with ascites. Created with BioRender.com.**
 
 ## Model simulator
