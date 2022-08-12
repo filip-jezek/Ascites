@@ -1,33 +1,23 @@
-# Introduction
+# Beyond HVPG: Using Computational Modeling to Explain the Many Faces of Portal Hypertensive Liver Disease
 
-Markdown with Bodylight Components v.2
+This page is an electronic addition to a submitted paper *"Beyond HVPG: Using Computational Modeling to Explain the Many Faces of Portal Hypertensive Liver Disease"* by Nikhilesh R Mazumder & Filip Jezek, Elliot B. Tapper and  Daniel A. Beard.
 
-You may use markdown to tag `**bold** or __italic__ ` so it will be rendered as **bold** or __italic__ 
+Cirrhosis progressively scars the liver, leading to increasing blood flow resistance. The severity of disease in cirrhosis centers on the pressure drop across the liver (HVPG), however the influence of other disease factors on this pressure have not been previously modeled.
 
-## Sections
-sections can be added using one or multipla hash symbols `#`. 
-## Mathematics
-katex is supported thus writing LATEX like syntax between `$` symbol will render the math.
+A mechanistical lumped mathematical model is used to investigate hidden properties of hemodynamics in portal hypertension under an effect of a shunt, which grows in diameter with the pressure difference. 
 
-E.g. Dirichlet integral `$\int_{0}^\infty\frac{\sin(x)}{x}dx = \frac{\pi}{2}$` is rendered:
+The model explains, how the measured HVPG depends on the shunt remodeling sensitivity and how the clinical stages of cirrhosis might differ among patients based on single parameter, the hypothetized shunt remodeling sensitivity, dividing patients into ascitic or variceal types groups.
 
-$\int_{0}^\infty\frac{\sin(x)}{x}dx = \frac{\pi}{2}$
+The developed model is further used to demonstrate effect of last resort portal hypertension treatment, that is the transjugular intrahepatic portosystemic shunt, on both patient groups.
 
-## Bodylight components
+The model implemented in Modelica is available at [github repository](https://github.com/filip-jezek/Ascites/). Additionally, it is [available for demonstration here](/#ascites.md) in a form of web-based simulator.
 
-Bodylight web components can be rendered directly, use full xml-tags with closing tags (not self-closing).
-<bdl-range min="10" max="20" step="2" default="15"></bdl-range>
 
-## Animation
+## Model overview
+![alt](Figure1.png =200x)
+**Anatomy (A) and model setup (B) of the base model (without the TIPS). (a) intestines, (b) portal vein, (c) liver (d) shunt, (e) inf. vena cava (f) abdominal cavity with ascites. Created with BioRender.com.**
 
-Adobe Animate can be exported into CreateJS components, these can be imported and used with `<bdl-animate-adobe></bdl-animate-adobe>` component.
+## Model simulator
+[Available for demonstration here.](/#ascites.md)
 
-## FMI 
-
-Modelica models exported to FMU and compiled by Bodylight FMU Compiler can be imported and used with `<bdl-fmi></bdl-fmi>` component.
-
-## Charts
-Plotly, Chartjs and Dygraph libraries are supported use `<bdl-chartjs-time></bdl-chartjs-time>` or `<bdl-plotly></bdl-plotly>` or `<bdl-dygraph></bdl-dygraph>` components.
-
-## Animated GIF
-Animated GIF can be imported, component `bdl-animate-gif` can handle animation and controls animation per each frame.
+*More info will follow shortly*
