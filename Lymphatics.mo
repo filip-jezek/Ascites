@@ -2474,8 +2474,8 @@ package Lymphatics
       end HVPGShuntsComparison_extended;
 
       model HVPGShuntsComparison_Size
-        extends HVPGShuntsComparison(ascites_NoShunts(Liver(useConductanceInput
-                =true, Resistance(displayUnit="(mmHg.min)/l") = 199983581.1225)));
+        extends HVPGShuntsComparison(ascites_NoShunts(Liver(useConductanceInput=
+                 true, Resistance(displayUnit="(mmHg.min)/l") = 199983581.1225)));
 
         Components.HagenPoiseulleConductance hagenPoiseulleConductance(
           d_nominal(displayUnit="mm") = 0.0045,
@@ -3028,6 +3028,88 @@ package Lymphatics
             color={0,0,0},
             thickness=1));
       end HVPGShuntsComparison_transmural;
+
+      model HVPGShuntsForSimulator
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump1(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,100},{-40,120}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump2(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,70},{-40,90}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump5(
+            SolutionFlow(displayUnit="l/min") = Inflow)
+          annotation (Placement(transformation(extent={{-60,40},{-40,60}})));
+        Components.Ascites_Resistance ascites_NoShunts(liverConductance(y=Lc))
+          annotation (Placement(transformation(extent={{-20,100},{0,120}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts(shunt(
+            Comp=7.50062E-09,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom), useTIPPS=false,
+          liverConductance(y=Lc))
+          annotation (Placement(transformation(extent={{-20,40},{0,60}})));
+        Components.Ascites_Resistance_Shunts ascites_ShuntDefault(
+          shunt(
+            Comp=7.50062E-09,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom), useTIPPS=false,
+          liverConductance(y=Lc))
+          annotation (Placement(transformation(extent={{-20,70},{0,90}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+          annotation (Placement(transformation(extent={{100,-10},{80,10}})));
+        parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=
+           1.6666666666667e-05   "Splanchnic perfusion";
+        parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance=7.50062E-08;
+        parameter Physiolibrary.Types.Pressure Shunt_Pnom(displayUnit="mmHg")=
+          1066.58    "Nominal end-point pressure";
+        parameter Physiolibrary.Types.HydraulicResistance Shunt_R0nom(
+            displayUnit="(mmHg.min)/l")=7999340000
+                         "Nominal resistance at P_nom";
+        parameter Physiolibrary.Types.HydraulicResistance R_TIPSS(displayUnit=
+              "(mmHg.min)/l")=39996700;
+        parameter Physiolibrary.Types.Pressure intestinalPressureDrop(
+            displayUnit="mmHg")=11199.08054286
+          "Pressure drop at intestinal arteries";
+        Physiolibrary.Types.HydraulicConductance Lc=1/((time + 1e-3)*
+            ascites_NoShunts.mmHg/ascites_NoShunts.Qnom) "liver conductance";
+      equation
+        connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
+            points={{0,110},{70,110},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_NoShunts.q_in, unlimitedPump1.q_out) annotation (Line(
+            points={{-20,110},{-40,110}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_Shunts.q_out, CVP.y) annotation (Line(
+            points={{0,50},{70,50},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump5.q_out, ascites_Shunts.q_in) annotation (Line(
+            points={{-40,50},{-20,50}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump2.q_out, ascites_ShuntDefault.q_in) annotation (Line(
+            points={{-40,80},{-20,80}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_ShuntDefault.q_out, CVP.y) annotation (Line(
+            points={{0,80},{70,80},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        annotation (
+          Icon(coordinateSystem(preserveAspectRatio=false)),
+          Diagram(coordinateSystem(preserveAspectRatio=false)),
+          experiment(
+            StopTime=30,
+            __Dymola_NumberOfIntervals=200,
+            Tolerance=1e-06,
+            __Dymola_Algorithm="Cvode"),
+          __Dymola_Commands(file(ensureSimulated=true) = "TIPPS.mos"
+              "Plot HVPG for shunt and non-shunt", file=
+                "Fig2 Treatment with TIPSS.mos" "Treatment with TIPSS",
+            file="ClinicalPhases-Compliant Stiff.mos" "ClinicalPhases",
+            file="ClinicalPhases.mos" "ClinicalPhases"));
+      end HVPGShuntsForSimulator;
     end Experiments;
   end Hemodynamics;
 
