@@ -10,14 +10,15 @@ The model explains, how the measured HVPG depends on the shunt remodeling sensit
 
 The developed model is further used to demonstrate effect of last resort portal hypertension treatment, that is the transjugular intrahepatic portosystemic shunt, on both patient groups.
 
-The model implemented in Modelica is available at [github repository](https://github.com/filip-jezek/Ascites/). Additionally, it is [available for demonstration here](/#ascites.md) in a form of web-based simulator.
+The model implemented in Modelica is available at [github repository](https://github.com/filip-jezek/Ascites/). Additionally, it is [available for demonstration here](/Ascites/#ascites.md) in a form of web-based simulator.
 
 
 ## Model overview
 ![Figure1 - model overview](Figure1.png)
+
 **Anatomy (A) and model setup (B) of the base model (without the TIPS). (a) intestines, (b) portal vein, (c) liver (d) shunt, (e) inf. vena cava (f) abdominal cavity with ascites. Created with BioRender.com.**
 
 ## Model simulator
-[Available for demonstration here.](/#ascites.md)
+[Available for demonstration here.](/Ascites//#ascites.md)
 
 *More info will follow shortly*
