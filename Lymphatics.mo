@@ -637,8 +637,8 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure mmHg=133.322;
         replaceable
         Physiolibrary.Hydraulic.Components.Resistor TIPSS(useConductanceInput=false,
-            Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5))
-          if useTIPPS
+            Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5)) if
+             useTIPPS
           constrainedby Physiolibrary.Hydraulic.Interfaces.OnePort
           annotation (Placement(transformation(extent={{0,-44},{20,-24}})));
         Physiolibrary.Hydraulic.Interfaces.HydraulicPort_a
@@ -820,7 +820,7 @@ package Lymphatics
           "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
         Physiolibrary.Types.Pressure P_inner;
 
-        Physiolibrary.Types.RealIO.PressureInput P_ext=p_abd   if useExternalCollapsingPressure "ExternalPressure"
+        Physiolibrary.Types.RealIO.PressureInput P_ext=p_abd if   useExternalCollapsingPressure "ExternalPressure"
           annotation (Placement(transformation(extent={{-120,70},{-80,110}})));
           Physiolibrary.Types.Pressure P_transm = (P_inner - p_abd);
           parameter Boolean useExternalCollapsingPressure = false;
@@ -2058,8 +2058,8 @@ package Lymphatics
         end HVPG_shuntsSchematics;
 
         model ModelSchematicsLarge
-          Physiolibrary.Hydraulic.Components.Resistor Liver(useConductanceInput
-              =false, Resistance=6*mmHg/Qnom)
+          Physiolibrary.Hydraulic.Components.Resistor Liver(useConductanceInput=
+               false, Resistance=6*mmHg/Qnom)
             annotation (Placement(transformation(extent={{2,-10},{22,10}})));
           AscitesLevitt.LevittCase1SsSiIo AscitesVolume
             annotation (Placement(transformation(extent={{44,18},{64,38}})));
@@ -2233,19 +2233,21 @@ package Lymphatics
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump5(
             SolutionFlow(displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-60,40},{-40,60}})));
-        Components.Ascites_Resistance ascites_NoShunts
+        Components.Ascites_Resistance ascites_NoShunts(liverConductance(y=Lc))
           annotation (Placement(transformation(extent={{-20,100},{0,120}})));
         Components.Ascites_Resistance_Shunts ascites_Shunts(shunt(
             Comp=7.50062E-09,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            R_nom=Shunt_R0nom), useTIPPS=false)
+            R_nom=Shunt_R0nom), useTIPPS=false,
+          liverConductance(y=Lc))
           annotation (Placement(transformation(extent={{-20,40},{0,60}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntStiff(
           shunt(
             Comp=3.75031E-09,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom= Shunt_R0nom),
-          useTIPPS=false)
+          useTIPPS=false,
+          liverConductance(y=Lc))
           annotation (Placement(transformation(extent={{-20,70},{0,90}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
@@ -2262,6 +2264,8 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure intestinalPressureDrop(
             displayUnit="mmHg")=11199.08054286
           "Pressure drop at intestinal arteries";
+        parameter Physiolibrary.Types.HydraulicConductance Lc=1/((time + 4)*
+            ascites_NoShunts.mmHg/ascites_NoShunts.Qnom) "liver conductance";
       equation
         connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
             points={{0,110},{70,110},{70,0},{80,0}},
@@ -2844,8 +2848,8 @@ package Lymphatics
             Comp(displayUnit="ml/mmHg") = 7.50062e-10,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
-            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pd), useTIPPS
-            =false)
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pd), useTIPPS=
+             false)
           annotation (Placement(transformation(extent={{-20,-60},{0,-40}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
             SolutionFlow(displayUnit="l/min") = Inflow)
@@ -2996,8 +3000,8 @@ package Lymphatics
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
             useExternalCollapsingPressure=true,
-            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS
-            =false)
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS=
+             false)
           annotation (Placement(transformation(extent={{-20,-80},{0,-60}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntStiff_transm(shunt(
             useConductanceInput=true,
@@ -3005,8 +3009,8 @@ package Lymphatics
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
             useExternalCollapsingPressure=true,
-            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS
-            =false)
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS=
+             false)
           annotation (Placement(transformation(extent={{-20,-50},{0,-30}})));
       equation
         connect(ascites_Shunts_transm.q_out, CVP.y) annotation (Line(
@@ -3044,15 +3048,19 @@ package Lymphatics
         Components.Ascites_Resistance_Shunts ascites_Shunts(shunt(
             Comp=7.50062E-09,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            R_nom=Shunt_R0nom), useTIPPS=false,
-          liverConductance(y=Lc))
+            R_nom=Shunt_R0nom),
+          useTIPPS=true,
+          liverConductance(y=Lc),
+          TIPSS(Resistance=TipsResistance))
           annotation (Placement(transformation(extent={{-20,40},{0,60}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntDefault(
           shunt(
             Comp=7.50062E-09,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
-            R_nom=Shunt_R0nom), useTIPPS=false,
-          liverConductance(y=Lc))
+            R_nom=Shunt_R0nom),
+          useTIPPS=false,
+          liverConductance(y=Lc),
+          TIPSS(Resistance(displayUnit="(mmHg.min)/l")))
           annotation (Placement(transformation(extent={{-20,70},{0,90}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
           annotation (Placement(transformation(extent={{100,-10},{80,10}})));
@@ -3071,6 +3079,9 @@ package Lymphatics
           "Pressure drop at intestinal arteries";
         Physiolibrary.Types.HydraulicConductance Lc=1/((time + 1e-3)*
             ascites_NoShunts.mmHg/ascites_NoShunts.Qnom) "liver conductance";
+        parameter Physiolibrary.Types.HydraulicResistance TipsResistance=if TipsOn > 0.5 then 7999343.2449*
+            (15/1.5) else 1e12 "Hydraulic conductance if useConductanceInput=false";
+        parameter Real TipsOn=0;
       equation
         connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
             points={{0,110},{70,110},{70,0},{80,0}},
