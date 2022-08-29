@@ -9,9 +9,9 @@ inputlabels="ascites_Shunts.shunt.Comp,Inflow,TipsOn" eventlisten="change"></bdl
 id="ida" 
 fromid="idfmi" 
 speedfactor="1" 
-segments="0;0;0;0;0;0"
+segments="0;1;2;3;4"
 segmentlabels="First;second;third;fourth;Out of bounds" 
-segmentcond="11,eq,1;11,eq,1;11,eq,3;11,eq,4;" ></bdl-animate-control> 
+segmentcond="11,eq,1;11,eq,1;11,eq,3;11,eq,4" ></bdl-animate-control> 
 
 <bdl-range id="id1" title="Remodeling sensitivity" min="0.1" max="5" default="1" step="0.1"></bdl-range>
 
