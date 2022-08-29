@@ -637,8 +637,8 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure mmHg=133.322;
         replaceable
         Physiolibrary.Hydraulic.Components.Resistor TIPSS(useConductanceInput=false,
-            Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5)) if
-             useTIPPS
+            Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449*(15/1.5))
+          if useTIPPS
           constrainedby Physiolibrary.Hydraulic.Interfaces.OnePort
           annotation (Placement(transformation(extent={{0,-44},{20,-24}})));
         Physiolibrary.Hydraulic.Interfaces.HydraulicPort_a
@@ -820,7 +820,7 @@ package Lymphatics
           "Side at which the filling is relative to resistance - inflow, outflow, or averaged (central)";
         Physiolibrary.Types.Pressure P_inner;
 
-        Physiolibrary.Types.RealIO.PressureInput P_ext=p_abd if   useExternalCollapsingPressure "ExternalPressure"
+        Physiolibrary.Types.RealIO.PressureInput P_ext=p_abd   if useExternalCollapsingPressure "ExternalPressure"
           annotation (Placement(transformation(extent={{-120,70},{-80,110}})));
           Physiolibrary.Types.Pressure P_transm = (P_inner - p_abd);
           parameter Boolean useExternalCollapsingPressure = false;
@@ -2264,7 +2264,7 @@ package Lymphatics
         parameter Physiolibrary.Types.Pressure intestinalPressureDrop(
             displayUnit="mmHg")=11199.08054286
           "Pressure drop at intestinal arteries";
-        parameter Physiolibrary.Types.HydraulicConductance Lc=1/((time + 4)*
+        Physiolibrary.Types.HydraulicConductance Lc=1/((time)*
             ascites_NoShunts.mmHg/ascites_NoShunts.Qnom) "liver conductance";
       equation
         connect(ascites_NoShunts.q_out, CVP.y) annotation (Line(
@@ -2321,6 +2321,9 @@ package Lymphatics
                 ascites_Shunts_FixedPressure.Qnom))
           annotation (Placement(transformation(extent={{-20,-110},{0,-90}})));
         parameter Physiolibrary.Types.VolumeFlowRate Inflow(displayUnit="l/min")=1.6666666666667e-05
+                                 "Splanchnic perfusion";
+        parameter Physiolibrary.Types.VolumeFlowRate InflowReduced(displayUnit=
+              "l/min")=1.3333333333333e-05
                                  "Splanchnic perfusion";
       //  parameter Physiolibrary.Types.HydraulicCompliance Shunt_Compliance(
       //      displayUnit="ml/mmHg")=7.50062e-07;
@@ -2394,6 +2397,32 @@ package Lymphatics
         Modelica.Blocks.Sources.RealExpression NoShuntsPressure(y=
               ascites_NoShunts.q_in.pressure) annotation (Placement(
               transformation(extent={{-100,-170},{-80,-150}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump9(
+            SolutionFlow(displayUnit="l/min") = InflowReduced)
+          annotation (Placement(transformation(extent={{-60,-200},{-40,-180}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts_spleenEmb(
+          shunt(
+            Comp=7.50062e-09,
+            d=ascites_Shunts.shunt.d,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            UsePrescribedDiameter=true),
+          useTIPPS=false,
+          liverConductance(y=Lc))
+          annotation (Placement(transformation(extent={{-20,-200},{0,-180}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump8(
+            SolutionFlow(displayUnit="l/min") = InflowReduced)
+          annotation (Placement(transformation(extent={{-60,-232},{-40,-212}})));
+        Components.Ascites_Resistance_Shunts ascites_Shunts_spleenEmb1(
+          shunt(
+            Comp=7.5006157584566e-13,
+            d(displayUnit="mm") = 1e-06,
+            P_nom(displayUnit="mmHg") = Shunt_Pnom,
+            R_nom=Shunt_R0nom,
+            UsePrescribedDiameter=true),
+          useTIPPS=false,
+          liverConductance(y=Lc))
+          annotation (Placement(transformation(extent={{-20,-232},{0,-212}})));
       equation
         connect(PA.y, ascites_Shunts_FixedPressure.q_in) annotation (Line(
             points={{-40,-100},{-20,-100}},
@@ -2462,10 +2491,29 @@ package Lymphatics
             points={{0,-160},{70,-160},{70,-130},{0,-130}},
             color={0,0,0},
             thickness=1));
+        connect(ascites_Shunts_spleenEmb.q_out, CVP.y) annotation (Line(
+            points={{0,-190},{70,-190},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump9.q_out, ascites_Shunts_spleenEmb.q_in)
+          annotation (Line(
+            points={{-40,-190},{-20,-190}},
+            color={0,0,0},
+            thickness=1));
+        connect(ascites_Shunts_spleenEmb1.q_out, CVP.y) annotation (Line(
+            points={{0,-222},{70,-222},{70,0},{80,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump8.q_out, ascites_Shunts_spleenEmb1.q_in)
+          annotation (Line(
+            points={{-40,-222},{-20,-222}},
+            color={0,0,0},
+            thickness=1));
         annotation (
           Icon(coordinateSystem(preserveAspectRatio=false)),
           Diagram(coordinateSystem(preserveAspectRatio=false)),
           experiment(
+            StartTime=4,
             StopTime=35,
             __Dymola_NumberOfIntervals=200,
             Tolerance=1e-06,
