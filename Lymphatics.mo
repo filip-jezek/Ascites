@@ -324,8 +324,9 @@ package Lymphatics
     // Real Pp = Phv+4 "Cannot use Phv+Pgrad1 because this make Ai <0 because of low Pa";
     parameter Real Vi0 =  Vimin "Initial intestine volume follow from Pi = Pa";
     //Real Ai = Ap+Pi-Pc "equilibrium across capillary";
-    Real Amti0 = Ai*Vi0 "initial intestine amount - Ai*VI0";
-    Real Amt0 = Aa*V0 "initial ascite amount";
+    parameter Real Pc0 = Pra1+(3+4+3);
+    parameter Real Amti0 = (Ap+Pmin-Pc0)*Vi0 "initial intestine amount - Ai*VI0";
+    parameter Real Amt0 = (Ap+Pmin-Pc0)*V0 "initial ascite amount";
 
     // ODEs
     Real Va(start = V0);
@@ -334,20 +335,20 @@ package Lymphatics
     Real Amti(start = Amti0);
 
     // Simple parameter relations (algebraic, not requiring diff. eq.
-    Real Pp(start = Phv+4) = Phv+Pgrad "portal vein pressure";
+    Real Pp = Phv+Pgrad "portal vein pressure";
     Real Pl = (Pp + Phv)/2.0 "liver tissue pressure = average sinusoidal pressure";
 
-    Real Pa( start = Pmin) = if Va<=Vmin then Po else Po+(Va-Vmin)/D "linear,  see older version for quadratic";
+    Real Pa = Po+max((Va-Vmin)/D,0) "linear,  see older version for quadratic";
     // Real Phv(start = Pra1+3) = if Pra+Pvg >Pa then Pra+Pvg else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
-    Real Phv(start = Pra1+3) = max(Pra+Pvg, Pa) "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+    Real Phv = max(Pra+Pvg, Pa) "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
     Real Pc = Pp+3 "Intestinal capillary pressure";
-    Real Pi(start = Pa) = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
+    Real Pi = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
 
-    Real Aa(start = Ai) = if Amt<=0 then 0.001 else Amt/Va "ascites protein conc.";
-    Real Ai( start = Ap+Pi-Pc) =  if Amti<=0 then 0.001 else Amti/Vi "int. tissue protein conc.";
+    Real Aa = if Amt<=0 then 0.001 else Amt/Va "ascites protein conc.";
+    Real Ai =  if Amti<=0 then 0.001 else Amti/Vi "int. tissue protein conc.";
 
     Real Ji =   Li*(Aa - Ai+Pi-Pa) "volume flow across intestinal mesotheium into ascites";
-    Real Jl =  if (Pl-Pa)<Pbreak then 0 else Ll*(Pl-Pa-Pbreak) "volume flow from liver";
+    Real Jl =  max(Ll*(Pl-Pa-Pbreak), 0) "volume flow from liver";
     Real Jy = if Pa<=Po then 0 else Ly*(Pmin+Pa-Pra) "0 if Va<0, Pmin pressure if Pa<Pra,else Pmin+Pa-Pra";
 
     Real Jla = m*Ap*Jl "albumin flow from liver";
@@ -355,15 +356,22 @@ package Lymphatics
 
     //New relations for intestinal tissue compartment
     Real Jc =  Lc*(Pc - Pi+ Ai -Ap) "capillary water flow";
-    Real Jyi = if (Pi-Pa)<0 then 0 else Lyi*(Pi-Pa) "For some reason, this integrates rapidly gives reasonable results";
+    Real Jyi = max(Lyi*(Pi-Pa),0) "For some reason, this integrates rapidly gives reasonable results";
     Real JcA = Perm*(Ap - Ai) "New -add a capillary protein permeabilit to balance int. lymph flow protein";
 
     equation
     //Differential equations:
     der(Va) = Ji+Jl-Jy;
+    //Va = 10;
     der(Amt)=Jla-Jya;
     der(Vi)=Jc-Jyi-Ji;
+
+    //Vi = 0.1;
     der(Amti)= JcA  -Jyi*Ai;
+
+    if Va < 1e-6 then
+      terminate("Ascites at zero");
+    end if;
 
       annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
             coordinateSystem(preserveAspectRatio=false)),
@@ -373,6 +381,126 @@ package Lymphatics
           Tolerance=1e-05,
           __Dymola_Algorithm="Dassl"));
     end LevitCase2Dynamics;
+
+    model LevitCase2DynamicsSI
+      "Model of dynamic ascites build-up by Levitt and Levitt (2012), PMID 22453061. Converted from Maple code."
+      import Physiolibrary.Types.*;
+      parameter Boolean paracentesis = false;
+      parameter Real speedup = 60*60*24;
+    //Independent variables
+    parameter Real dayconv =  24.0 "hours/day   - thus paramteters in units of 1/day";
+    parameter Real volconv = 0.001 "liter/ml";
+
+    //volconv = 1.0 "liter/ml";
+    parameter Pressure Ap=3333.059685375
+                               "Plasma colloid osmoitc pressure";
+    parameter Pressure Po=266.64477483
+                                 "minimum pressure in the pressure Pa vs Volume relation";
+    parameter Pressure Pvg=266.64477483
+                                 "Hep[atic vein to CVP gradient";
+    parameter Pressure Pmin = Po "minimum pressure in the lymph flow equation (in paper - assume that = Po";
+    parameter Volume Vmin(displayUnit="l")=0.0001
+                                 "No lymph flow until ascitic volume ";
+    parameter Pressure Pbreak=1066.57909932
+                                     "pressure required to break liver lymphatics";
+    parameter Physiolibrary.Types.HydraulicCompliance D(displayUnit="l/mmHg")=6.0004926067653e-06
+                                                               " Experimental Valuesml/mm Hg   Volume = Vmin+D*(Pa - Po),  in steady state  Vol = D*P";
+
+    //Adjustable paramters:  These are the same values used in Ascites_state_grad9 and in paper
+    parameter Real m = 0.8 "liver tissue protein = 80% of plasma";
+    parameter Physiolibrary.Types.HydraulicConductance Lt(displayUnit="ml/(mmHg.h)")=
+         1.3021902358432e-11                                                     "ml/hour/mm Hg for total conductance from paper";
+    parameter HydraulicConductance Lc = 2.0*Lt;
+    parameter HydraulicConductance Li = Lc "distribute intestinal resistance equally between capilary and mesothelium";
+    parameter HydraulicConductance Ll(displayUnit="ml/(mmHg.h)")=2.1460095086695e-11;
+    parameter HydraulicConductance Ly0(displayUnit="ml/(mmHg.h)")=1.6376344405963e-11
+                                                               "ml/hour mm Hg  steady state value";
+
+    //parameters for intestinal tissue
+    parameter Volume Vimin=0.0001        " = 100 ml = int. volume where Pi = Pa (i.e. 0 presssure gradient";
+    parameter Volume Vimin2=5e-05        " have constant negative pressure for Vi <Vimin2";
+    parameter Physiolibrary.Types.HydraulicElastance Di=133322387.415*((0.75/100))
+                                                                              "mm Hg/ml P = Di*Vi  NOTE: units are the inverse of D - this corresponds to 0.75 mm Hg pressure increase for doubling of volume from 100 to 200 ml";
+    parameter HydraulicConductance Lyi(displayUnit="ml/(mmHg.h)")=3.7503078792283e-11
+                                                             "int. tissue lymph flow - about twice the conductance of the peritoneal space";
+    //Real Vi0 = 110*volconv "initial intestinal volume";
+    parameter Physiolibrary.Types.DiffusionPermeability Perm(displayUnit="ml/day")=2.3148148148148e-11
+                                                                            "capillary protein permeability ml/d";
+
+    parameter Modelica.Units.SI.Time t_e(displayUnit="s")=30
+                                               "event time";
+    parameter Pressure Pgrad1=2133.15819864,
+                                    Pgrad2=1706.526558912;
+    parameter Pressure Pra1=666.611937075,
+                                Pra2=266.64477483;
+
+    Pressure Pgrad = if time < t_e then Pgrad1 else Pgrad2;
+    Pressure Pra = if time < t_e then Pra1 else Pra2;
+    HydraulicConductance Ly = if paracentesis and time > t_e and time < t_e + 0.5 then Ly0*50 else Ly0 "At Pgrad = 20.0 and Pra = 5.0;";
+
+    //Initial condtions:
+    parameter Volume V0 = Vmin "initial ascites volume";
+    // Real Pp = Phv+4 "Cannot use Phv+Pgrad1 because this make Ai <0 because of low Pa";
+    parameter Volume Vi0 =  Vimin "Initial intestine volume follow from Pi = Pa";
+    //Real Ai = Ap+Pi-Pc "equilibrium across capillary";
+    parameter Pressure Pc0 = Pra1+133.32*(3+4+3);
+    parameter Real Amti0 = (Ap+Pmin-Pc0)*Vi0 "initial intestine amount - Ai*VI0";
+    parameter Real Amt0 = (Ap+Pmin-Pc0)*V0 "initial ascite amount";
+
+    // ODEs
+    Volume Va(start = V0);
+    Real Amt(start = Amt0, unit = "Pa.m3", displayUnit = "mmHg.l");
+    Real Amt_dbg = Amt/133.322*1000;
+    Volume Vi(start = Vi0);
+    Real Amti(start = Amti0, unit = "Pa.m3", displayUnit = "mmHg.l");
+    Real Amti_dbg = Amti/133.322*1000;
+
+    // Simple parameter relations (algebraic, not requiring diff. eq.
+    Pressure Pp = Phv+Pgrad "portal vein pressure";
+    Pressure Pl = (Pp + Phv)/2.0 "liver tissue pressure = average sinusoidal pressure";
+
+    Pressure Pa = Po+max((Va-Vmin)/D, 0) "linear,  see older version for quadratic";
+    // Real Phv(start = Pra1+3) = if Pra+Pvg >Pa then Pra+Pvg else Pa "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+    Pressure Phv = max(Pra+Pvg, Pa) "P hepatic vein = r. atrium +3 is this is greater in Pa, otherwise Pa";
+    Pressure Pc = Pp+3*133.32 "Intestinal capillary pressure";
+    Pressure Pi = if Vi<=Vimin2 then Pa+Di*(Vimin2-Vimin) else Pa+Di*(Vi-Vimin) "constant negative pressure for Vi<Vimin2, varying negative for Vi<Vimin, positive for Vi&>Vimin ";
+
+    Pressure Aa = if Amt<=0 then 0.001 else Amt/Va "ascites protein conc.";
+    Pressure Ai =  if Amti<=0 then 0.001 else Amti/Vi "int. tissue protein conc.";
+
+    VolumeFlowRate Ji =   Li*(Aa - Ai+Pi-Pa) "volume flow across intestinal mesotheium into ascites";
+    VolumeFlowRate Jl =  if (Pl-Pa)<Pbreak then 0 else Ll*(Pl-Pa-Pbreak) "volume flow from liver";
+    VolumeFlowRate Jy = if Pa<=Po then 0 else Ly*(Pmin+Pa-Pra) "0 if Va<0, Pmin pressure if Pa<Pra,else Pmin+Pa-Pra";
+
+    Real Jla = m*Ap*Jl "albumin flow from liver";
+    Real Jya = Aa*Jy " peritoneal lymph protrein removal rate (Aa = ascites protein) - mmHg*m3/s";
+
+    //New relations for intestinal tissue compartment
+    VolumeFlowRate Jc =  Lc*(Pc - Pi+ Ai -Ap) "capillary water flow";
+    VolumeFlowRate Jyi = if (Pi-Pa)<0 then 0 else Lyi*(Pi-Pa) "For some reason, this integrates rapidly gives reasonable results";
+    Real JcA = Perm*(Ap - Ai) "New -add a capillary protein permeabilit to balance int. lymph flow protein";
+
+    equation
+    //Differential equations:
+    der(Va)/speedup = Ji+Jl-Jy;
+    //Va = 1e-3*10;
+    der(Amt)/speedup=Jla-Jya;
+    der(Vi)/speedup=Jc-Jyi-Ji;
+    //Vi = 0.1*1e-3;
+    der(Amti)/speedup= JcA  -Jyi*Ai;
+
+    if Va < 1e-6 then
+      terminate("Ascites at zero");
+    end if;
+
+      annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+            coordinateSystem(preserveAspectRatio=false)),
+        experiment(
+          StopTime=60,
+          __Dymola_NumberOfIntervals=5000,
+          Tolerance=1e-09,
+          __Dymola_Algorithm="Dassl"));
+    end LevitCase2DynamicsSI;
 
     model LD_concs
       import Lymphatics;
