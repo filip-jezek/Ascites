@@ -5,13 +5,13 @@
 inputs="id1,16777243,7.5006e-09,1,t;id2,16777270,1.6666666666667e-05,1,t;id3,16777276,1,1,t"
 inputlabels="ascites_Shunts.shunt.Comp,Inflow,TipsOn" eventlisten="change"></bdl-fmi>
 
-<bdl-animate-control 
-id="ida" 
-fromid="idfmi" 
-speedfactor="1" 
-segments="0;0;0;0;0;0"
-segmentlabels="First;second;third;fourth;Out of bounds" 
-segmentcond="11,eq,1;11,eq,1;11,eq,3;11,eq,4;" ></bdl-animate-control> 
+<bdl-animate-control
+id="ida"
+fromid="idfmi"
+speedfactor="1"
+segments="1;2;3;4;5"
+segmentlabels="initial;first;second;third;fourth"
+segmentcond="11,eq,1;11,eq,2;11,eq,3;11,eq,4;11,eq,5" ></bdl-animate-control>
 
 <bdl-range id="id1" title="Remodeling sensitivity" min="0.1" max="5" default="1" step="0.1"></bdl-range>
 
@@ -22,13 +22,13 @@ segmentcond="11,eq,1;11,eq,1;11,eq,3;11,eq,4;" ></bdl-animate-control>
 <div class="w3-half">
 HVPG
 
-<bdl-chartjs-time width="400" height="400" fromid="idfmi" labels="No shunts,Adjusted shunt,Default shunt" initialdata="0, 1, 2" refindex="0" refvalues="3" ylabel="HVPG (mmHg)" xlabel="Liver resistance (mmHg.min/L)" showLine="false" convertors="1,133.32;1,133.32;1,133.32" min="0" max="35" sectionid="ida"></bdl-chartjs-time>
+<bdl-chartjs-time width="400" height="400" fromid="idfmi" labels="No shunts,Adjusted shunt,Default shunt" refindex="0" refvalues="3" ylabel="HVPG (mmHg)" xlabel="Liver resistance (mmHg.min/L)" showLine="false" convertors="1,133.32;1,133.32;1,133.32" min="0" max="35" sectionid="ida"></bdl-chartjs-time>
 
 </div>
 <div class="w3-half">
 PPV
 
-<bdl-chartjs-time width="400" height="400" fromid="idfmi" labels="No shunts,Adjusted,Default" initialdata="0, 1, 2" refindex="3" refvalues="3" ylabel="PPV (mmHg)" xlabel="Liver resistance (mmHg.min/L)" convertors="1,133.32;1,133.32;1,133.32" min=0 max=70 sectionid="ida"></bdl-chartjs-time>
+<bdl-chartjs-time width="400" height="400" fromid="idfmi" labels="No shunts,Adjusted,Default" refindex="3" refvalues="3" ylabel="PPV (mmHg)" xlabel="Liver resistance (mmHg.min/L)" convertors="1,133.32;1,133.32;1,133.32" min=0 max=70 sectionid="ida"></bdl-chartjs-time>
 
 </div>
 </div>
@@ -43,7 +43,7 @@ Flows
 <div class="w3-half">
 Shunt diameter
 
-<bdl-chartjs-time width="400" height="400" fromid="idfmi"  initialdata="0," refindex="10" refvalues="2" ylabel="Diameter(mm)" xlabel="Liver resistance (mmHg.min/L)" convertors="1000,1" min="0" max="6"></bdl-chartjs-time>
+<bdl-chartjs-time width="400" height="400" fromid="idfmi"  refindex="10" refvalues="2" ylabel="Diameter(mm)" xlabel="Liver resistance (mmHg.min/L)" convertors="1000,1" min="0" max="6"></bdl-chartjs-time>
 
 </div>
 </div>
