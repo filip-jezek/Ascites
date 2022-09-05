@@ -137,15 +137,33 @@ legend(plo, l);
 title('Maximal drained volume');
 
 %% Readmission dates
+validSubjects = [];
 for sub = 1:length(subjects)
     if length(subjects{sub}.Procedures) < 2
         continue;
     end
-    for lebn
-    pv = max(subjects{sub}.Procedures.vol); % drained volume
-    pp = max(subjects{sub}.Procedures.p); % starting pressure
-    prp = min(subjects{sub}.Procedures.p); % resting (ending) pressure
-    pst = subjects{sub}.Procedures.Times(0); % start time
-    pet = subjects{sub}.Procedures.Times(end); % end time
-    
+    for p = 1:length(subjects{sub}.Procedures)
+        subjects{sub}.pv(p) = max(subjects{sub}.Procedures{p}.Volumes); % drained volume
+        subjects{sub}.pp(p) = max(subjects{sub}.Procedures{p}.Pressures); % starting pressure
+        subjects{sub}.prp(p) = min(subjects{sub}.Procedures{p}.Pressures); % resting (ending) pressure
+        subjects{sub}.pst(p) = subjects{sub}.Procedures{p}.Times(1); % start time
+        subjects{sub}.pet(p) = subjects{sub}.Procedures{p}.Times(end); % end time
+        
+    end
+    validSubjects = [validSubjects, sub];
+end
+
+% filter out first one just because 3x3 :]
+validSubjects = validSubjects(2:end);
+%% plot
+figure(3);clf; hold on;
+
+for i = 1:length(validSubjects)
+    sub = subjects{validSubjects(i)};
+    subplot(3,3,i);
+    times = [sub.pst;sub.pet];
+    vols = [sub.pv; repmat(0, [1, length(sub.pv)])];
+    % TODO plot pressures
+    plot(times(:), vols(:), '*-')
+    title(['Subject ' num2str(sub.Id)]);
 end
