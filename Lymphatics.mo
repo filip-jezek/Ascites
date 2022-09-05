@@ -3513,8 +3513,8 @@ ascites")}),                                                         Diagram(
         Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedPump2(SolutionFlow(
               displayUnit="l/min") = Inflow)
           annotation (Placement(transformation(extent={{-50,-12},{-30,8}})));
-        Components.Ascites_ResistanceDynamic ascites_dynamic(liverConductance(y
-              =Lc))
+        Components.Ascites_ResistanceDynamic ascites_dynamic(liverConductance(y=
+               Lc))
           annotation (Placement(transformation(extent={{-10,-12},{10,8}})));
 
       parameter Physiolibrary.Types.HydraulicConductance Lc=1/((15)*
@@ -3539,7 +3539,8 @@ ascites")}),                                                         Diagram(
             color={0,0,0},
             thickness=1));
         annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-              coordinateSystem(preserveAspectRatio=false)));
+              coordinateSystem(preserveAspectRatio=false)),
+          experiment(StopTime=1728000, __Dymola_Algorithm="Dassl"));
       end DynamicHVPG;
     end Experiments;
   end Hemodynamics;
