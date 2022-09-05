@@ -29,11 +29,20 @@ while ~EOF
     while nextLineProc == proc
 
         vol = [vol pacs{line, 3}];
-        p = [p pacs{line, 4}];
+        % convert the pressure from cmH2O to mmHg
+        p = [p pacs{line, 4}*0.73];
         try
             t = datetime(pacs{line, 5}, 'InputFormat', 'hh:mma');
         catch
-            t = NaT;
+            if length(t_abs) > 0
+                % estimate missing time entry to about 10 minutes
+                t = t_abs(end) + minutes(10);
+            else
+                t = NaT;
+                warning("Time format conversion failed. Sub " ...
+                + num2str(sub) + "." +num2str(proc) + "(l. " + num2str(line) ...
+                + "):'" + pacs{line, 5} + "'");                
+            end
         end
         t_abs = [t_abs t];
 
@@ -89,11 +98,11 @@ for s = 1:15
 subplot(3,5,s);hold on;
 prc = subjects{s}.Procedures;
     for p = 1:length(prc)
-        plot(prc{p}.Volumes, prc{p}.Pressures);
+        plot(prc{p}.Volumes, prc{p}.Pressures, 'o-');
     end
     title(['Subject ' num2str(s) ' with ' num2str(length(prc)) ' prc']);
     xlim([0, 10]);
-    ylim([0, 20]);
+    ylim([0, 15]);
 %     set(gca, 'XDir','reverse');
     if s == 1 || s == 6 || s == 11
         ylabel('Pressure (mmHg)')
@@ -109,7 +118,7 @@ for s = 1:15
   
 prc = subjects{s}.Procedures;
     for p = 1:length(prc)
-        plot(prc{p}.Volumes, prc{p}.Pressures);
+        plot(prc{p}.Volumes, prc{p}.Pressures, 'x-');
     end
 end
 xlim([0, 10]);
@@ -121,7 +130,7 @@ xlabel('Drained volume (L)');
 figure(2);clf; hold on;
 subnum = length(subjects);
 cols = turbo(subnum);
-markers = repmat(['s'; 'o'; 'v'], [ceil(subnum/3), 1])
+markers = repmat(['s'; 'o'; 'v'], [ceil(subnum/3), 1]);
 for s = 1:subnum
     prc = subjects{s}.Procedures;
     for p = 1:length(prc)
@@ -130,7 +139,7 @@ for s = 1:subnum
     l{s} = ['Subject ' num2str(s)];
 end
 xlim([0, 15]);
-ylim([0, 30]);
+ylim([0, 20]);
 ylabel('Pressure (mmHg)')
 xlabel('Drained volume (L)');
 legend(plo, l);
@@ -160,10 +169,16 @@ figure(3);clf; hold on;
 
 for i = 1:length(validSubjects)
     sub = subjects{validSubjects(i)};
-    subplot(3,3,i);
+    subplot(3,3,i);hold on;
     times = [sub.pst;sub.pet];
+    press = [sub.pp; sub.prp];
+    % we have to assume zero resting volume after paracentesis
     vols = [sub.pv; repmat(0, [1, length(sub.pv)])];
     % TODO plot pressures
-    plot(times(:), vols(:), '*-')
+    plot(times(:), vols(:), '*-');
+    plot(times(:), press(:), 'o--');
     title(['Subject ' num2str(sub.Id)]);
+    if i == 4
+        legend('Volume (L)', 'Pressure (mmHg)', 'Location', 'best');
+    end
 end
