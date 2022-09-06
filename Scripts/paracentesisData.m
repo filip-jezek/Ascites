@@ -33,6 +33,9 @@ while ~EOF
         p = [p pacs{line, 4}*0.73];
         try
             t = datetime(pacs{line, 5}, 'InputFormat', 'hh:mma');
+            if isnat(t)
+                t = datetime('today') + minutes(proc*10);
+            end
         catch
             if length(t_abs) > 0
                 % estimate missing time entry to about 10 minutes
@@ -174,10 +177,13 @@ for i = 1:length(validSubjects)
     press = [sub.pp; sub.prp];
     % we have to assume zero resting volume after paracentesis
     vols = [sub.pv; repmat(0, [1, length(sub.pv)])];
-    % TODO plot pressures
+    
     plot(times(:), vols(:), '*-');
     plot(times(:), press(:), 'o--');
-    title(['Subject ' num2str(sub.Id)]);
+    
+    meanInt = (sub.pst(end) - sub.pst(1))./length(sub.pst)
+    
+    title(['Subject ' num2str(sub.Id) ' with mean interval ' num2str(round(days(meanInt), 1)) 'd']);
     if i == 4
         legend('Volume (L)', 'Pressure (mmHg)', 'Location', 'best');
     end
