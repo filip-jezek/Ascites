@@ -2796,6 +2796,33 @@ ascites")}),                                                         Diagram(
             file="ClinicalPhases.mos" "ClinicalPhases"));
       end HVPGShuntsComparison;
 
+      model HVPGShuntsComparison_IncreasingInflow
+        extends HVPGShuntsComparison(
+          unlimitedPump1(useSolutionFlowInput=true),
+          unlimitedPump2(useSolutionFlowInput=true),
+          unlimitedPump5(useSolutionFlowInput=true));
+        Modelica.Blocks.Sources.Ramp ramp(
+          height=(height - 1)*Inflow,
+          duration=30.0,
+          offset=Inflow,
+          startTime=5)
+          annotation (Placement(transformation(extent={{-130,70},{-110,90}})));
+        parameter Real height=2.5 "Height of ramps";
+      equation
+        connect(ramp.y, unlimitedPump1.solutionFlow) annotation (Line(points={{
+                -109,80},{-76,80},{-76,117},{-50,117}}, color={0,0,127}));
+        connect(ramp.y, unlimitedPump2.solutionFlow) annotation (Line(points={{
+                -109,80},{-76,80},{-76,96},{-50,96},{-50,87}}, color={0,0,127}));
+        connect(ramp.y, unlimitedPump5.solutionFlow) annotation (Line(points={{
+                -109,80},{-66,80},{-66,64},{-50,64},{-50,57}}, color={0,0,127}));
+        annotation (experiment(
+            StartTime=5,
+            StopTime=30,
+            __Dymola_NumberOfIntervals=2000,
+            Tolerance=1e-06,
+            __Dymola_Algorithm="Cvode"));
+      end HVPGShuntsComparison_IncreasingInflow;
+
       model HVPGShuntsComparison_extended
         extends HVPGShuntsComparison(R_TIPSS(displayUnit="(mmHg.min)/l"));
         Physiolibrary.Hydraulic.Sources.UnlimitedVolume PA(P=13332.2387415)
@@ -3393,8 +3420,8 @@ ascites")}),                                                         Diagram(
             Comp(displayUnit="ml/mmHg") = 7.50062e-10,
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
-            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pd), useTIPPS
-            =false)
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pd), useTIPPS=
+             false)
           annotation (Placement(transformation(extent={{-20,-60},{0,-40}})));
         Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump4(
             SolutionFlow(displayUnit="l/min") = Inflow)
@@ -3547,8 +3574,8 @@ ascites")}),                                                         Diagram(
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
             useExternalCollapsingPressure=true,
-            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS
-            =false)
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS=
+             false)
           annotation (Placement(transformation(extent={{-20,-80},{0,-60}})));
         Components.Ascites_Resistance_Shunts ascites_ShuntStiff_transm(
             splenorenalShunt(
@@ -3557,8 +3584,8 @@ ascites")}),                                                         Diagram(
             P_nom(displayUnit="mmHg") = Shunt_Pnom,
             R_nom=Shunt_R0nom,
             useExternalCollapsingPressure=true,
-            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS
-            =false)
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pt), useTIPPS=
+             false)
           annotation (Placement(transformation(extent={{-20,-50},{0,-30}})));
       equation
         connect(ascites_Shunts_transm.q_out, CVP.y) annotation (Line(
