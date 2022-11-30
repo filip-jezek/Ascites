@@ -97,7 +97,6 @@ ylabel('Pressure (mmHg)');
 ylim([5 35]);
 xlim([5 35]);
 xlabel('Liver resistance (mmHg.L/min)');
-xlim([5,30])
 yyaxis right;
 
 p_inf = plot(R_liver, inflow, '-', 'Color', [251 183 74]/255, 'Linewidth', 2, 'MarkerSize', ms);
@@ -105,9 +104,9 @@ ylabel('L/min')
 
 yyaxis left
 plot([1 1]*R_liver(find(hvpg_ns >= 30, 1, 'first')), [5 35], 'Color', [251 183 74]/255, 'linewidth', 3)
-text(17.5, 29, num2str(round(hvpg_ns(find(hvpg_ns >= 30, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_s)
-text(15.1, 23, num2str(round(hvpg_snres(find(hvpg_ns >= 30, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_r)
-text(17.5, 18, num2str(round(hvpg_sres(find(hvpg_ns >= 30, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_b)
+text(18.5, 29, num2str(round(hvpg_ns(find(hvpg_ns >= 30, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_s)
+text(18.6, 25, num2str(round(hvpg_snres(find(hvpg_ns >= 30, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_r)
+text(18.5, 18, num2str(round(hvpg_sres(find(hvpg_ns >= 30, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_b)
 legend([p_hvpg_ns, p_hvpg_res, p_hvpg_nres, p_inf], 'No shunt', 'shunt, Sensitive', 'shunt, Insensitive', 'Splanchnic inflow*', 'location', 'southeast')
 
 
@@ -127,9 +126,9 @@ ylabel('*L/min')
 
 yyaxis left
 plot([1 1]*R_liver(find(ppv_ns >= 55, 1, 'first')), [5 100], 'Color', [251 183 74]/255, 'linewidth', 3)
-text(14, 55, num2str(round(ppv_ns(find(ppv_ns >= 55, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_s)
-text(14, 38, num2str(round(ppv_snres(find(ppv_ns >= 55, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_r)
-text(17.5, 30, num2str(round(ppv_sres(find(ppv_ns >= 55, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_b)
+text(15, 55, num2str(round(ppv_ns(find(ppv_ns >= 55, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_s)
+text(15.5, 34.5, num2str(round(ppv_snres(find(ppv_ns >= 55, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_r)
+text(17.9, 27, num2str(round(ppv_sres(find(ppv_ns >= 55, 1, 'first')))), 'fontweight','bold','fontsize',14, 'Color', color_b)
 legend([p_hvpg_ns, p_hvpg_res, p_hvpg_nres, p_inf], 'No shunt', 'shunt, Sensitive', 'shunt, Insensitive', 'Splanchnic inflow', 'location', 'southeast')
 
 if savefigs
