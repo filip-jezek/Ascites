@@ -968,27 +968,6 @@ ascites")}),                                                         Diagram(
           "Minimal observable ascites, marking the existence of ascites";
         parameter Physiolibrary.Types.Pressure HVPG_bleed=2266.480586055
                                                           "Minimal HVPG which results in variceal bleeding";
-        replaceable Physiolibrary.Hydraulic.Components.Resistor EsophagealVeins(
-            useConductanceInput=true, Resistance=84*mmHg/Qnom)
-          "Intestinal Arteriole resistance"
-          annotation (Placement(transformation(extent={{20,-100},{40,-80}})));
-        replaceable Physiolibrary.Hydraulic.Components.Resistor LeftGastricVein(
-            useConductanceInput=true, Resistance=84*mmHg/Qnom)
-          "Intestinal Arteriole resistance"
-          annotation (Placement(transformation(extent={{-42,-90},{-22,-70}})));
-        replaceable Physiolibrary.Hydraulic.Components.Resistor AzygousVein(
-            Resistance(displayUnit="(mmHg.min)/l") = 7999343.2449)
-          "Intestinal Arteriole resistance"
-          annotation (Placement(transformation(extent={{52,-100},{72,-80}})));
-        HagenPoiseulleConductance LGVhagenPoiseulleConductance(d_nominal=0.004,
-            mu=6e-3)
-          annotation (Placement(transformation(extent={{-54,-66},{-34,-46}})));
-        HagenPoiseulleConductance LGVhagenPoiseulleConductance1(d_nominal=0.002,
-            mu=6e-3)
-          annotation (Placement(transformation(extent={{64,-80},{44,-60}})));
-        replaceable Physiolibrary.Hydraulic.Components.Resistor gastricArt(
-            Resistance=84*mmHg/Qnom) "Intestinal Arteriole resistance"
-          annotation (Placement(transformation(extent={{-80,-90},{-60,-70}})));
       equation
 
         when not Liver.dp > HVPG_bleed and splenorenalShunt.q_in.q >
@@ -1013,32 +992,6 @@ ascites")}),                                                         Diagram(
             thickness=1));
         connect(splenorenalShunt.P_ext, levittCase1SsSiIo.Pa) annotation (Line(
               points={{0,-53},{52,-53},{52,16}}, color={0,0,127}));
-        connect(EsophagealVeins.q_out, AzygousVein.q_in) annotation (Line(
-            points={{40,-90},{52,-90}},
-            color={0,0,0},
-            thickness=1));
-        connect(AzygousVein.q_out, q_out) annotation (Line(
-            points={{72,-90},{78,-90},{78,0},{100,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(LGVhagenPoiseulleConductance.hydraulicconductance,
-          LeftGastricVein.cond) annotation (Line(points={{-33.8,-56},{-28,-56},
-                {-28,-74},{-32,-74}}, color={0,0,127}));
-        connect(LGVhagenPoiseulleConductance1.hydraulicconductance,
-          EsophagealVeins.cond) annotation (Line(points={{43.8,-70},{30,-70},{
-                30,-84}}, color={0,0,127}));
-        connect(gastricArt.q_out, LeftGastricVein.q_in) annotation (Line(
-            points={{-60,-80},{-42,-80}},
-            color={0,0,0},
-            thickness=1));
-        connect(LeftGastricVein.q_out, IntestineVenule.q_out) annotation (Line(
-            points={{-22,-80},{-14,-80},{-14,0},{-20,0}},
-            color={0,0,0},
-            thickness=1));
-        connect(EsophagealVeins.q_in, LeftGastricVein.q_in) annotation (Line(
-            points={{20,-90},{-52,-90},{-52,-80},{-42,-80}},
-            color={0,0,0},
-            thickness=1));
       end Ascites_Resistance_Shunts;
 
       model Ascites_Resistance_ShuntsWEso
@@ -2663,6 +2616,83 @@ ascites")}),                                                         Diagram(
                   textString="Pressure inputs",
                   fontSize=12)}));
         end ModelSchematicsLarge;
+
+        model HVPG_shuntsSchematicsEmb "Model for view not for simulation"
+          extends Components.partialAscites(
+            redeclare Physiolibrary.Hydraulic.Components.Resistor Liver(
+                useConductanceInput=true, Resistance=6*mmHg/Qnom),
+            redeclare Physiolibrary.Hydraulic.Components.Resistor IntestinesArt(
+                Resistance=84*mmHg/Qnom),
+            redeclare Physiolibrary.Hydraulic.Components.Resistor IntestineVenule(
+                Resistance=3*mmHg/Qnom));
+          Modelica.Blocks.Sources.RealExpression HVPG_nominal(y=1/(time*mmHg/Qnom))
+            annotation (Placement(transformation(extent={{-80,4},{-60,24}})));
+
+          parameter Physiolibrary.Types.VolumeFlowRate Qnom=1.666666666666667e-08*(5000*
+              0.2) "Nominal flow through the splanchnic circulation";
+          parameter Physiolibrary.Types.Pressure mmHg=133.322;
+          replaceable Components.ResistancePressureDep collateralShunt(enable=
+                true, useConductanceInput=false) if useTIPPS constrainedby
+            Physiolibrary.Hydraulic.Interfaces.OnePort
+            annotation (Placement(transformation(extent={{0,-28},{20,-8}})));
+          parameter Boolean useTIPPS=false;
+          Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(
+              SolutionFlow(displayUnit="l/min") = 1.6666666666667e-05)
+            annotation (Placement(transformation(extent={{-110,-10},{-90,10}})));
+          Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+            annotation (Placement(transformation(extent={{108,-10},{88,10}})));
+        equation
+          connect(Liver.cond, HVPG_nominal.y)
+            annotation (Line(points={{10,6},{10,14},{-59,14}}, color={0,0,127}));
+          connect(collateralShunt.q_in, IntestineVenule.q_out) annotation (Line(
+              points={{0,-18},{-14,-18},{-14,0},{-20,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(collateralShunt.q_out, HV.q_in) annotation (Line(
+              points={{20,-18},{24,-18},{24,0},{52,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(CVP.y, HV.q_out) annotation (Line(
+              points={{88,0},{72,0}},
+              color={0,0,0},
+              thickness=1));
+          connect(unlimitedPump.q_out, IntestinesArt.q_in) annotation (Line(
+              points={{-90,2.22045e-16},{-84,2.22045e-16},{-84,0},{-80,0}},
+              color={0,0,0},
+              thickness=1));
+          annotation (Documentation(info="<html>
+<p>The TIPS resistance taken from TIPS flow and PVP from Su et al (2012, PMID 22099870).</p>
+</html>"),   Diagram(graphics={
+                Rectangle(
+                  extent={{-52,48},{48,-28}},
+                  lineColor={217,67,180},
+                  lineThickness=1),
+                Text(
+                  extent={{-120,4},{-84,16}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="0.6 or 1 L/min"),
+                Text(
+                  extent={{-86,-18},{-48,-6}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(84 mmHg)"),
+                Text(
+                  extent={{-50,-20},{-12,-8}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(3 mmHg)"),
+                Text(
+                  extent={{-96,22},{-44,34}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="(4-30 mmHg)"),
+                Text(
+                  extent={{78,-24},{116,-12}},
+                  textColor={28,108,200},
+                  fontSize=14,
+                  textString="5 mmHg")}));
+        end HVPG_shuntsSchematicsEmb;
       end Schematics;
 
       type RemodelingModel = enumeration(
@@ -2889,9 +2919,9 @@ ascites")}),                                                         Diagram(
           Icon(coordinateSystem(preserveAspectRatio=false)),
           Diagram(coordinateSystem(preserveAspectRatio=false)),
           experiment(
-            StartTime=5,
-            StopTime=30,
-            __Dymola_NumberOfIntervals=200,
+            StartTime=4,
+            StopTime=35,
+            __Dymola_NumberOfIntervals=2000,
             Tolerance=1e-06,
             __Dymola_Algorithm="Cvode"),
           __Dymola_Commands(file(ensureSimulated=true) = "TIPPS.mos"
