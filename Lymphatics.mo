@@ -2788,8 +2788,7 @@ ascites")}),                                                         Diagram(
           "Pressure drop at intestinal arteries";
         Physiolibrary.Types.HydraulicConductance Lc=1/((time)*
             ascites_NoShunts.mmHg/ascites_NoShunts.Qnom) "liver conductance";
-        parameter Physiolibrary.Types.VolumeFlowRate EmbolizedInflow(
-            displayUnit="l/min") = 1e-05
+        parameter Physiolibrary.Types.VolumeFlowRate EmbolizedInflow=1.25E-05
           "Volumetric flow of solution if useSolutionFlowInput=false";
         Components.Ascites_Resistance_Shunts ascites_ShuntsEmb(
           splenorenalShunt(
@@ -2886,8 +2885,8 @@ ascites")}),                                                         Diagram(
             points={{-6,-8},{34,-8},{34,0},{80,0}},
             color={0,0,0},
             thickness=1));
-        connect(unlimitedPump6.q_out, ascites_ShuntStiffEmbSS.q_in) annotation
-          (Line(
+        connect(unlimitedPump6.q_out, ascites_ShuntStiffEmbSS.q_in) annotation (
+           Line(
             points={{-44,-44},{-44,-42},{-26,-42}},
             color={0,0,0},
             thickness=1));
