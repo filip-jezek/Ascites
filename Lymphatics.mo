@@ -1043,12 +1043,13 @@ ascites")}),                                                         Diagram(
 
       model Ascites_Resistance_ShuntsWEso
         extends Ascites_Resistance(levittCase1SsSiIo(D=9.0007389101479e-06));
+        parameter Boolean UseSplenorenalShunt = true;
         ResistancePressureDep splenorenalShunt(
           R_nom(displayUnit="(mmHg.min)/ml") = 7999343244.9,
           Comp(displayUnit="ml/mmHg") = 7.5006157584566e-09,
           P_nom=1199.901486735,
           side=Lymphatics.Hemodynamics.Components.SideEnum.Central,
-          useExternalCollapsingPressure=false)
+          useExternalCollapsingPressure=false) if UseSplenorenalShunt
           annotation (Placement(transformation(extent={{0,-72},{20,-52}})));
         output Physiolibrary.Types.VolumeFlowRate Q_shunt=splenorenalShunt.q_in.q;
 
@@ -3751,6 +3752,18 @@ ascites")}),                                                         Diagram(
             P_nom(displayUnit="mmHg") = 1999.84,
             R_nom(displayUnit="(mmHg.min)/l") = 79993400000));
       end HVPG_shunts_EsophagealParams;
+      
+      model HVPG_shunts_EsophagealParamsNoSplenorenal
+        extends HVPG_shunts( UseSplenorenalShunt = false,
+          MAP(P(displayUnit="mmHg") = 13332.2387415),
+          gastricArt(Resistance(displayUnit="(mmHg.min)/l") = 5599540000.0),
+          EsophagealVeins(
+            rm=Lymphatics.Hemodynamics.Components.RemodelingModel.Pd,
+            UsePrescribedDiameter=false,
+            Comp(displayUnit="ml/mmHg") = 7.50062e-11,
+            P_nom(displayUnit="mmHg") = 1999.84,
+            R_nom(displayUnit="(mmHg.min)/l") = 79993400000));
+      end HVPG_shunts_EsophagealParamsNoSplenorenal;
     end Experiments;
   end Hemodynamics;
 
