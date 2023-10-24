@@ -1,6 +1,6 @@
 # Beyond HVPG: Using Computational Modeling to Explain the Many Faces of Portal Hypertensive Liver Disease
 
-This page is an electronic addition to a submitted paper *"Beyond HVPG: Using Computational Modeling to Explain the Many Faces of Portal Hypertensive Liver Disease"* by Nikhilesh R Mazumder & Filip Jezek, Elliot B. Tapper and  Daniel A. Beard.
+This page is an electronic addition to a paper *"Portal Venous Remodeling Determines the Pattern of Cirrhosis Decompensation: A Systems Analysis"* by Nikhilesh R Mazumder & Filip Jezek, Elliot B. Tapper and  Daniel A. Beard., [published in Clinical and Translational Gastroenterology, 2023](https://journals.lww.com/ctg/fulltext/2023/09000/portal_venous_remodeling_determines_the_pattern_of.5.aspx) (DOI 10.14309/ctg.0000000000000590)
 
 Cirrhosis progressively scars the liver, leading to increasing blood flow resistance. The severity of disease in cirrhosis centers on the pressure drop across the liver (HVPG), however the influence of other disease factors on this pressure have not been previously modeled.
 
@@ -21,4 +21,3 @@ The model implemented in Modelica is available at [github repository](https://gi
 ## Model simulator
 [Available for demonstration here.](/Ascites//#ascites.md)
 
-*More info will follow shortly*
