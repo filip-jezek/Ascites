@@ -2702,6 +2702,60 @@ ascites")}),                                                         Diagram(
           Shear                                                                                                       "Shear stress",
           Wt                                                          "Wall tension")
             "Remodelling assumption for the shunt";
+      model HAandPVmixing
+        "Based on paper 1D-model of the human liver circulatory system by Torres and Lorente, 10.1016/j.cmpb.2023.107612"
+
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump unlimitedVolume(
+            useSolutionFlowInput=false, SolutionFlow(displayUnit="m3/s") = 0.5)
+          annotation (Placement(transformation(extent={{-80,-40},{-60,-20}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume1(
+            usePressureInput=false, P(displayUnit="mmHg") = 93)
+          annotation (Placement(transformation(extent={{-80,20},{-60,40}})));
+        Physiolibrary.Hydraulic.Components.Resistor resistor(Resistance=90)
+          annotation (Placement(transformation(extent={{-20,20},{0,40}})));
+        Physiolibrary.Hydraulic.Components.Resistor resistor1(
+            useConductanceInput=false, Resistance=3)
+          annotation (Placement(transformation(extent={{-18,-38},{2,-18}})));
+        Physiolibrary.Hydraulic.Components.Resistor resistor2(
+            useConductanceInput=true, Resistance=3)
+          annotation (Placement(transformation(extent={{60,-10},{80,10}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume unlimitedVolume2(P(
+              displayUnit="mmHg") = 2)
+          annotation (Placement(transformation(extent={{124,-10},{104,10}})));
+        Modelica.Blocks.Sources.Ramp ramp(
+          height=15,
+          duration=1,
+          offset=3)
+          annotation (Placement(transformation(extent={{-80,-10},{-60,10}})));
+        Physiolibrary.Blocks.Math.Reciprocal rec
+          annotation (Placement(transformation(extent={{-42,-10},{-22,10}})));
+      equation
+        connect(resistor.q_in, unlimitedVolume1.y) annotation (Line(
+            points={{-20,30},{-60,30}},
+            color={0,0,0},
+            thickness=1));
+        connect(resistor.q_out, resistor1.q_out) annotation (Line(
+            points={{0,30},{38,30},{38,-28},{2,-28}},
+            color={0,0,0},
+            thickness=1));
+        connect(resistor2.q_in, resistor1.q_out) annotation (Line(
+            points={{60,0},{48,0},{48,2},{38,2},{38,-28},{2,-28}},
+            color={0,0,0},
+            thickness=1));
+        connect(resistor2.q_out, unlimitedVolume2.y) annotation (Line(
+            points={{80,0},{104,0}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedVolume.q_out, resistor1.q_in) annotation (Line(
+            points={{-60,-30},{-22,-30},{-22,-28},{-18,-28}},
+            color={0,0,0},
+            thickness=1));
+        connect(ramp.y, rec.u)
+          annotation (Line(points={{-59,0},{-44,0}}, color={0,0,127}));
+        connect(rec.y, resistor2.cond) annotation (Line(points={{-21,0},{24,0},
+                {24,14},{70,14},{70,6}}, color={0,0,127}));
+        annotation ();
+      end HAandPVmixing;
     end Components;
 
     package Experiments
