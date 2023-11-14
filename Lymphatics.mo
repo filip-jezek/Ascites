@@ -4161,6 +4161,55 @@ ascites")}),                                                         Diagram(
           __Dymola_Algorithm="Dassl"));
     end Ascites;
   end Deprecated;
+
+  model TensionBasedCompliance
+
+    constant Real pi = 3.14;
+    parameter Modelica.Units.SI.Volume V0(displayUnit="l")=0.007
+                                                 "Zero pressure volume";
+  // https://pubmed.ncbi.nlm.nih.gov/22182984/
+  // liver, 968-1860 g; spleen, 28-226 g; right kidney, 81-160 g; and left kidney, 83-176 g.
+  // 1200 + 150 + 100 + 100 = 1500g
+  // stomach 3 pounds, intestines 7.5 pounds ~ 10 pounds =~ 5kg
+  // altogether 7 Kg = 7L
+
+    Modelica.Units.SI.Radius r0(displayUnit="cm") "Zero presssure diameter";
+    Modelica.Units.SI.Radius r "Actual presssure diameter";
+    Modelica.Units.SI.Volume V "Actual volume";
+    Modelica.Units.SI.Volume Ve = V - V0 "Excess volume";
+    Modelica.Units.SI.SurfaceTension T;
+    Modelica.Units.SI.Pressure P(displayUnit="kPa");
+    Modelica.Units.SI.Pressure P_mmHg = P/133.32;
+
+    Modelica.Units.SI.Length L;
+    Modelica.Units.SI.Length L0;
+    parameter Real C=3000.0
+                         "Compliance of the wall";
+    parameter Real Ce=2 "Zero compliance of the wall";
+
+
+
+
+  equation
+    // Spherical case
+    V0 = 4/3*pi*r0^3;
+    L0 = 2*pi*r0;
+    V = 4/3*pi*r^3;
+    L = 2*pi*r;
+    T = P*r/2;
+
+    // cylindrical case
+  //   T = P*r;
+
+    // universal
+    T = C*(L - L0)^Ce;
+
+  // time unit in liters
+  V = V0 + time/1000;
+    annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+          coordinateSystem(preserveAspectRatio=false)),
+      experiment(StopTime=15, __Dymola_Algorithm="Dassl"));
+  end TensionBasedCompliance;
   annotation (uses(Physiolibrary(version="2.4.1"), Modelica(version="4.0.0"),
       ADAN_main(version="1.1")));
 end Lymphatics;
