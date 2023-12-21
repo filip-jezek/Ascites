@@ -3958,7 +3958,127 @@ ascites")}),                                                         Diagram(
                   "ml/mmHg") = 3.75031E-10), splenorenalShunt(Comp=7.50062E-11,
               L=0.05));
       end HVPG_shunts_EsophagealParams_TestParams;
+
+      model TestEsophagealSplenicEmbo
+        HVPG_shunts_EsophagealParams_TestParams Base(
+          CVP(P=CVP),
+          MAP(P=P_art),
+          unlimitedPump(SolutionFlow=Qsplanch),
+          splenorenalShunt(Comp(displayUnit="ml/mmHg") = 7.50062e-12))
+          annotation (Placement(transformation(extent={{-40,60},{-20,80}})));
+        HVPG_shunts_EsophagealParams_TestParams Embo(
+          EsophagealVeins(d=Base.EsophagealVeins.d, UsePrescribedDiameter=true),
+
+          CVP(P=CVP),
+          unlimitedPump(SolutionFlow=emboRatio*Qsplanch),
+          MAP(P=P_art),
+          splenorenalShunt(Comp=7.5006157584566e-12))
+          annotation (Placement(transformation(extent={{-40,20},{-20,40}})));
+        parameter Physiolibrary.Types.Pressure CVP=666.611937075
+          "Hydraulic pressure if usePressureInput=false";
+        parameter Physiolibrary.Types.VolumeFlowRate Qsplanch=
+            1.6666666666667e-05
+          "Volumetric flow of solution if useSolutionFlowInput=false";
+        parameter Physiolibrary.Types.Pressure P_art=13332.2387415
+          "Hydraulic pressure if usePressureInput=false";
+        parameter Real emboRatio=0.6 "Flow ratio after embo";
+        HVPG_shunts_EsophagealParams_TestParams Embo1(
+          EsophagealVeins(d=Base.EsophagealVeins.d, UsePrescribedDiameter=false),
+
+          CVP(P=CVP),
+          unlimitedPump(SolutionFlow=emboRatio*Qsplanch),
+          MAP(P=P_art),
+          splenorenalShunt(Comp=7.5006157584566e-12))
+          annotation (Placement(transformation(extent={{-40,-20},{-20,0}})));
+        annotation (
+          Icon(coordinateSystem(preserveAspectRatio=false)),
+          Diagram(coordinateSystem(preserveAspectRatio=false)),
+          experiment(StopTime=20, __Dymola_Algorithm="Dassl"),
+          __Dymola_Commands(executeCall(ensureSimulated=true) = {createPlot(
+                    id=2,
+                    position={619,0,606,883},
+                    y={"Embo.EsophagealVeins.volumeFlowRate",
+                "Base.EsophagealVeins.volumeFlowRate",
+                "Base.LeftGastricVein.volumeFlowRate",
+                "Embo.LeftGastricVein.volumeFlowRate"},
+                    range={0.0,20.0,-160.0,260.0},
+                    grid=true,
+                    colors={{28,108,200},{238,46,47},{0,140,72},{217,67,180}},
+                    timeUnit="s",
+                    displayUnits={"ml/min","ml/min","ml/min","ml/min"}),
+              createPlot(
+                    id=4,
+                    position={0,0,607,883},
+                    y={"Base.HVPG","Embo.HVPG"},
+                    range={0.0,20.0,2.0,18.0},
+                    grid=true,
+                    colors={{28,108,200},{238,46,47}},
+                    timeUnit="s",
+                    displayUnits={"mmHg","mmHg"})} "CompareEmbo"));
+      end TestEsophagealSplenicEmbo;
     end Experiments;
+
+    package DataFit
+
+      model Test
+        Physiolibrary.Hydraulic.Sources.UnlimitedPump   unlimitedPump(SolutionFlow(
+              displayUnit="l/min") = 1.6666666666667e-05)
+          annotation (Placement(transformation(extent={{-82,4},{-62,24}})));
+        replaceable
+        Physiolibrary.Hydraulic.Components.Resistor         Oeso(useConductanceInput=true,
+            Resistance(displayUnit="(mmHg.min)/l") = 7999343244900)
+          annotation (Placement(transformation(extent={{-12,-40},{8,-20}})));
+        replaceable
+        Physiolibrary.Hydraulic.Components.Resistor         LiverRes(Resistance(
+              displayUnit="(mmHg.min)/l") = 119990000.0)
+          "Intestinal venule pressure drop"
+          annotation (Placement(transformation(extent={{-12,4},{8,24}})));
+        Physiolibrary.Hydraulic.Sensors.PressureMeasure Phv
+          annotation (Placement(transformation(extent={{-20,56},{0,76}})));
+        Physiolibrary.Hydraulic.Sources.UnlimitedVolume CVP(P=666.611937075)
+          annotation (Placement(transformation(extent={{60,-12},{40,8}})));
+        Modelica.Blocks.Sources.RealExpression liverConductance(y=Reso)
+          annotation (Placement(transformation(extent={{-40,-30},{-20,-10}})));
+
+        Physiolibrary.Types.Pressure p_data = (10.95831 + 8.991122*exp(-0.05793506*time))*133.32;
+        Physiolibrary.Types.Area  A_eso;
+        Physiolibrary.Types.HydraulicResistance Reso(start = 7999343244900) = 8*mu*L/(Modelica.Constants.pi*(d/2)^4);
+       Modelica.Units.SI.Diameter d;
+       parameter Modelica.Units.SI.Diameter d_nominal(displayUnit="mm")=0.001;
+
+       parameter Real mu = 3e-3;
+
+       parameter Physiolibrary.Types.Length L=0.05;
+
+      equation
+        Phv.pressure = p_data;
+
+        connect(LiverRes.q_in, unlimitedPump.q_out) annotation (Line(
+            points={{-12,14},{-62,14}},
+            color={0,0,0},
+            thickness=1));
+        connect(unlimitedPump.q_out, Phv.q_in) annotation (Line(
+            points={{-62,14},{-18,14},{-18,52},{-24,52},{-24,60},{-14,60}},
+            color={0,0,0},
+            thickness=1));
+        connect(Oeso.q_in, unlimitedPump.q_out) annotation (Line(
+            points={{-12,-30},{-48,-30},{-48,14},{-62,14}},
+            color={0,0,0},
+            thickness=1));
+        connect(CVP.y, LiverRes.q_out) annotation (Line(
+            points={{40,-2},{22,-2},{22,14},{8,14}},
+            color={0,0,0},
+            thickness=1));
+        connect(Oeso.q_out, LiverRes.q_out) annotation (Line(
+            points={{8,-30},{28,-30},{28,-2},{22,-2},{22,14},{8,14}},
+            color={0,0,0},
+            thickness=1));
+        connect(liverConductance.y, Oeso.cond)
+          annotation (Line(points={{-19,-20},{-2,-20},{-2,-24}}, color={0,0,127}));
+        annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+              coordinateSystem(preserveAspectRatio=false)));
+      end Test;
+    end DataFit;
   end Hemodynamics;
 
   package Deprecated
@@ -4181,26 +4301,35 @@ ascites")}),                                                         Diagram(
     Modelica.Units.SI.Pressure P(displayUnit="kPa");
     Modelica.Units.SI.Pressure P_mmHg = P/133.32;
 
-    Modelica.Units.SI.Length L;
-    Modelica.Units.SI.Length L0;
+    Modelica.Units.SI.Length L "Total circumferential length";
+    Modelica.Units.SI.Length L0 "Zero-tension circumferential length";
     parameter Real C=3000.0
                          "Compliance of the wall";
     parameter Real Ce=2 "Zero compliance of the wall";
 
-
+    parameter Boolean isSphere = false "Cylinder otherwise"
+      annotation (Evaluate=false);
+    parameter Modelica.Units.SI.Length L_abd=0.3 "Length of the abdominal cavity";
 
 
   equation
+
+    if isSphere then
     // Spherical case
     V0 = 4/3*pi*r0^3;
     L0 = 2*pi*r0;
     V = 4/3*pi*r^3;
     L = 2*pi*r;
     T = P*r/2;
-
+  else
     // cylindrical case
   //   T = P*r;
-
+    V0 = pi*r0^2*L_abd;
+    L0 = 2*pi*r0;
+    V = pi*r^2*L_abd;
+    L = 2*pi*r;
+    T = P*r;
+  end if;
     // universal
     T = C*(L - L0)^Ce;
 
