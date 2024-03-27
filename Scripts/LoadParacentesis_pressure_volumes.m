@@ -91,106 +91,106 @@ end
 %%
 options = optimset('Display','iter', 'TolFun', 1e-4, 'Algorithm','sqp', 'UseParallel', true, ...
     'TolX', 0.01, 'MaxIter', 20);
-
-%% single patient MODEL fit and estimation
-figure(2);clf;
-tiledlayout('flow');
-nexttile;
-
-% linear model
-pm = @(a, b, c, x) max(-1, a*(x -b) + c);
-% no shift
-pm_0 = @(a, c, x) pm(a, 0, c, x);
-costs = [];
-% patId = 2;
-% patId = 2;
-patId = 11;
-% prcId = 1;
-% patId = 10;
-x_ = 0:10;
-hold on;
-cl = lines(length(patients{patId}.prc));
-for prcId = 1:size(patients{patId}.prc, 2)
-    if prcId == 1
-        lw = 3; % line width
-    else
-        lw = 1;
-    end
-    % if patients{patId}.prc{prcId}.Pressure == 0
-    %     patients{patId}.prc(prcId).Pressure = NaN;
-    % end
-    % [ae gd] = fit(patients{patId}.prc{prcId}.Drained', patients{patId}.prc{prcId}.Pressure', pm, ...
-    %     'StartPoint', [-1, 0, patients{patId}.prc{prcId}.Pressure(1)]);
-    [ae gd] = fit(patients{patId}.prc{prcId}.Drained', patients{patId}.prc{prcId}.Pressure', pm_0, ...
-        'StartPoint', [-1, patients{patId}.prc{prcId}.Pressure(1)]);
-    
-    costs(prcId) = gd.rmse/length(patients{patId}.prc{prcId}.Drained);
-    fsoptions = optimset('Display','off');
-    patients{patId}.Vdrained(prcId) = patients{patId}.prc{prcId}.Drained(end) - patients{patId}.prc{prcId}.Drained(1);
-    V0 = fsolve(ae, 1, fsoptions);
-    x_ = 0:0.1:ceil(V0);
-    patients{patId}.V0(prcId) = V0;
-    patients{patId}.V_openExtrap(prcId) = V0 - patients{patId}.prc{prcId}.Drained(1);
-    patients{patId}.V_closeExtrap(prcId) = V0 - patients{patId}.prc{prcId}.Drained(end);
-    patients{patId}.V_closeExtrapByP(prcId) = V0 - fsolve(@(x) ae(x) - patients{patId}.prc{prcId}.Pressure(end), 1, fsoptions);
-    if prcId == 1
-        patients{patId}.V_generated(prcId) = NaN;
-    else
-        patients{patId}.V_generated(prcId) = patients{patId}.V_openExtrap(prcId) - patients{patId}.V_closeExtrap(prcId - 1);
-    end
-
-    plot(V0 - patients{patId}.prc{prcId}.Drained, patients{patId}.prc{prcId}.Pressure, 'o-', 'Color', cl(prcId, :), LineWidth=lw);
-    plot(V0 - x_, ae(x_), '--', LineWidth=lw, Color=cl(prcId, :));
-end
-cost = nanmean(costs);
-
-title(sprintf('Single procedure best fit: %0.2fx + %0.2f', ae.a, ae.c))
-xlabel('$V_E = V_0 - V_D$', 'Interpreter','latex');ylabel('Pressure ($cmH_{2}O$)', 'Interpreter','latex');
-%% Fit all procedures in single patient
-nexttile;hold on;
+% 
+% %% single patient MODEL fit and estimation
+% figure(2);clf;
+% tiledlayout('flow');
+% nexttile;
+% 
+% % linear model
+% pm = @(a, b, c, x) max(-1, a*(x -b) + c);
+% % no shift
+% pm_0 = @(a, c, x) pm(a, 0, c, x);
+% costs = [];
+% % patId = 2;
+% % patId = 2;
+% patId = 11;
+% % prcId = 1;
+% % patId = 10;
+% x_ = 0:10;
+% hold on;
+% cl = lines(length(patients{patId}.prc));
+% for prcId = 1:size(patients{patId}.prc, 2)
+%     if prcId == 1
+%         lw = 3; % line width
+%     else
+%         lw = 1;
+%     end
+%     % if patients{patId}.prc{prcId}.Pressure == 0
+%     %     patients{patId}.prc(prcId).Pressure = NaN;
+%     % end
+%     % [ae gd] = fit(patients{patId}.prc{prcId}.Drained', patients{patId}.prc{prcId}.Pressure', pm, ...
+%     %     'StartPoint', [-1, 0, patients{patId}.prc{prcId}.Pressure(1)]);
+%     [ae gd] = fit(patients{patId}.prc{prcId}.Drained', patients{patId}.prc{prcId}.Pressure', pm_0, ...
+%         'StartPoint', [-1, patients{patId}.prc{prcId}.Pressure(1)]);
+% 
+%     costs(prcId) = gd.rmse/length(patients{patId}.prc{prcId}.Drained);
+%     fsoptions = optimset('Display','off');
+%     patients{patId}.Vdrained(prcId) = patients{patId}.prc{prcId}.Drained(end) - patients{patId}.prc{prcId}.Drained(1);
+%     V0 = fsolve(ae, 1, fsoptions);
+%     x_ = 0:0.1:ceil(V0);
+%     patients{patId}.V0(prcId) = V0;
+%     patients{patId}.V_openExtrap(prcId) = V0 - patients{patId}.prc{prcId}.Drained(1);
+%     patients{patId}.V_closeExtrap(prcId) = V0 - patients{patId}.prc{prcId}.Drained(end);
+%     patients{patId}.V_closeExtrapByP(prcId) = V0 - fsolve(@(x) ae(x) - patients{patId}.prc{prcId}.Pressure(end), 1, fsoptions);
+%     if prcId == 1
+%         patients{patId}.V_generated(prcId) = NaN;
+%     else
+%         patients{patId}.V_generated(prcId) = patients{patId}.V_openExtrap(prcId) - patients{patId}.V_closeExtrap(prcId - 1);
+%     end
+% 
+%     plot(V0 - patients{patId}.prc{prcId}.Drained, patients{patId}.prc{prcId}.Pressure, 'o-', 'Color', cl(prcId, :), LineWidth=lw);
+%     plot(V0 - x_, ae(x_), '--', LineWidth=lw, Color=cl(prcId, :));
+% end
+% cost = nanmean(costs);
+% 
+% title(sprintf('Single procedure best fit: %0.2fx + %0.2f', ae.a, ae.c))
+% xlabel('$V_E = V_0 - V_D$', 'Interpreter','latex');ylabel('Pressure ($cmH_{2}O$)', 'Interpreter','latex');
+% %% Fit all procedures in single patient
+% nexttile;hold on;
+% % fitPat = @(params) evalFit(params, patients{patId}.prc, false);
+% % fr = fminsearch(fitPat, [-1 10], options);
+% %% fit only zero crossings
+% % clf;
 % fitPat = @(params) evalFit(params, patients{patId}.prc, false);
-% fr = fminsearch(fitPat, [-1 10], options);
-%% fit only zero crossings
-% clf;
-fitPat = @(params) evalFit(params, patients{patId}.prc, false);
-fr = fminsearch(fitPat, [10], options);
-
-% cla;hold on;
-[costAvg bs costs] = evalFit([fr], patients{patId}.prc, true);
-costAvg
-%
-if length(fr) == 1
-    title(sprintf('All procedures best fit: V0 at %0.2f L', fr(1)));
-else
-    title(sprintf('All procedures best fit: %0.2f(x - V_0) + %0.2f', fr(1), fr(2)));
-end
-xlabel('$V_D - V_{S,j}$', 'Interpreter','latex');ylabel('Pressure ($cmH_2O$)', 'Interpreter','latex');
-%% Visualize date shift
+% fr = fminsearch(fitPat, [10], options);
+% 
+% % cla;hold on;
+% [costAvg bs costs] = evalFit([fr], patients{patId}.prc, true);
+% costAvg
+% %
+% if length(fr) == 1
+%     title(sprintf('All procedures best fit: V0 at %0.2f L', fr(1)));
+% else
+%     title(sprintf('All procedures best fit: %0.2f(x - V_0) + %0.2f', fr(1), fr(2)));
+% end
+% xlabel('$V_D - V_{S,j}$', 'Interpreter','latex');ylabel('Pressure ($cmH_2O$)', 'Interpreter','latex');
+% %% Visualize date shift
 % max drained volume, which is empty ambdomen
-pm_zc
-V_dmax = fsolve(@(x)pm(fr(1), 0, fr(2), x), 1e-6);
-
-for prcId = 1:length(bs)
-    prc = patients{patId}.prc{prcId};
-    patients{patId}.V_openCombined(prcId) = -(prc.Drained(1) - V_dmax - bs(prcId));
-    plot(prc.Drained - V_dmax - bs(prcId), prc.Pressure, 'o-', Color=cl(prcId, :));hold on;
-end
-x_ = 0:0.1:10;
-plot(x_ - V_dmax, pm(fr(1), 0, fr(2), x_))
-plot([V_dmax V_dmax], [0  10], 'k--');
-text(V_dmax, 10, sprintf('$V_{D,max}$\n %0.1f L',V_dmax), 'Interpreter','latex')
-patients{patId}.V_dmax = V_dmax;
+% pm_zc
+% V_dmax = fsolve(@(x)pm(fr(1), 0, fr(2), x), 1e-6);
+% 
+% for prcId = 1:length(bs)
+%     prc = patients{patId}.prc{prcId};
+%     patients{patId}.V_openCombined(prcId) = -(prc.Drained(1) - V_dmax - bs(prcId));
+%     plot(prc.Drained - V_dmax - bs(prcId), prc.Pressure, 'o-', Color=cl(prcId, :));hold on;
+% end
+% x_ = 0:0.1:10;
+% plot(x_ - V_dmax, pm(fr(1), 0, fr(2), x_))
+% plot([V_dmax V_dmax], [0  10], 'k--');
+% text(V_dmax, 10, sprintf('$V_{D,max}$\n %0.1f L',V_dmax), 'Interpreter','latex')
+% patients{patId}.V_dmax = V_dmax;
 % days from last paracentesis
-dflp = patients{patId}.last2dop;
-nexttile;hold on;
-plotXXXonDFLP(dflp, patients{patId}.Vdrained, "Drained volume", []);
-nexttile;hold on;
-plotXXXonDFLP(dflp, patients{patId}.V_openExtrap, "Opening volume - Extrapolation", [])
-nexttile;hold on;
-plotXXXonDFLP(dflp, patients{patId}.V_closeExtrap, "Closing volume - extrapolation", [])
-nexttile;hold on;
-plotXXXonDFLP(dflp, patients{patId}.V_generated, "Generated volume", [])
-
+% dflp = patients{patId}.last2dop;
+% nexttile;hold on;
+% plotXXXonDFLP(dflp, patients{patId}.Vdrained, "Drained volume", []);
+% nexttile;hold on;
+% plotXXXonDFLP(dflp, patients{patId}.V_openExtrap, "Opening volume - Extrapolation", [])
+% nexttile;hold on;
+% plotXXXonDFLP(dflp, patients{patId}.V_closeExtrap, "Closing volume - extrapolation", [])
+% nexttile;hold on;
+% plotXXXonDFLP(dflp, patients{patId}.V_generated, "Generated volume", [])
+% 
 
 
 
