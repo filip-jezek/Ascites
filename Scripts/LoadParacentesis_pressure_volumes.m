@@ -226,6 +226,7 @@ for patId = patIds
         end
     end
     patients{patId}.prc = patients{patId}.prc(validPrcs);
+    patients{patId}.last2dop = patients{patId}.last2dop(validPrcs);
 end
 
 %% Identify all patients - assuming same compliance
@@ -348,11 +349,13 @@ end
 
 %% PLOTS - correlation between combined and etrapolated drainage
 figure(30);clf;tiledlayout('flow');
+c = zeros(max(patIds), 3); c(patIds, :) = lines(length(patIds));
 nexttile;
 hold on;
 plot([0 15], [0 15], 'k--')
 for patId = patIds
-    pl(patId) = plot(patients{patId}.V_generatedExtrap, patients{patId}.V_generatedComb, 'o-', LineWidth=2);
+    plot(patients{patId}.V_generatedExtrap, patients{patId}.V_generatedComb, 'o', LineWidth=2, Color=c(patId, :));
+    pl(patId) = plot(patients{patId}.V_generatedExtrap, patients{patId}.V_generatedComb, 'o-', LineWidth=0.5, Color=c(patId, :));
     leg(patId) = string(sprintf('#%d', patId));
     valid(patId) = true;
 end
@@ -360,7 +363,6 @@ xlim([0 inf]);ylim([0 inf]);
 xlabel('Extrap');ylabel('Combined');legend(pl(valid), leg(valid))
 %% COMBINED
 figure(31);clf;tiledlayout('flow', TileSpacing='compact');
-c = zeros(max(patIds), 3); c(patIds, :) = lines(length(patIds));
 
 % COMBINED
 nexttile;hold on;
@@ -368,7 +370,7 @@ for patId = patIds
     pl(patId) = plot(patients{patId}.V_generatedComb, 'o-', LineWidth=2);
 end
 ylim([0 inf]);
-xlabel('para Sequence');ylabel('V_{gen} Combined');legend(pl(valid), leg(valid));
+xlabel('para Sequence');ylabel('V_{gen} Combined');%legend(pl(valid), leg(valid));
 
 nexttile;hold on;
 for patId = patIds
@@ -379,22 +381,26 @@ for patId = patIds
     pl(patId) = plot(patients{patId}.last2dop, patients{patId}.V_generatedComb, 'o-', LineWidth=2, color=c(patId, :));
 end
 ylim([0 inf]);
-xlabel('Days since last para');ylabel('V_{gen} Combined');legend(pl(valid), leg(valid));
+xlabel('Days since last para');ylabel('V_{gen} Combined');%legend(pl(valid), leg(valid));
 
 nexttile;hold on;
 for patId = patIds
     pl(patId) = plot(patients{patId}.V_generatedComb./patients{patId}.last2dop, 'o-', LineWidth=2);
 end
 ylim([0 inf]);
-xlabel('para Sequence');ylabel('R_{gen} Combined (L/day)');legend(pl(valid), leg(valid));
+xlabel('para Sequence');ylabel('R_{gen} Combined (L/day)');%legend(pl(valid), leg(valid));
 
 nexttile;hold on;
 for patId = patIds
+    if length(patients{patId}.V_generatedComb) < 2
+        continue;
+    end    
     ps(patId) = plot(patients{patId}.last2dop(2), patients{patId}.V_generatedComb(2)./patients{patId}.last2dop(2), 's', LineWidth=4, color=c(patId, :));
     pl(patId) = plot(patients{patId}.last2dop, patients{patId}.V_generatedComb./patients{patId}.last2dop, 'o-', LineWidth=2, color=c(patId, :));
 end
 ylim([0 inf]);
 xlabel('Days since last para');ylabel('R_{gen} Combined (L/day)');legend(pl(valid), leg(valid));
+exportgraphics(gcf, 'GeneratedVolumes_combined.png', 'Resolution',150);
 
 %% EXTRPOLATED
 figure(32);clf;tiledlayout('flow', 'TileSpacing','compact', 'Padding','loose');
@@ -405,31 +411,37 @@ for patId = patIds
     pl(patId) = plot(patients{patId}.V_generatedExtrap, 'o-', LineWidth=2);
 end
 ylim([0 inf]);
-xlabel('para Sequence');ylabel('V_{gen} Extrap');legend(pl(valid), leg(valid));
+xlabel('para Sequence');ylabel('V_{gen} Extrap');%legend(pl(valid), leg(valid));
 
 nexttile;hold on;
 for patId = patIds
+    if length(patients{patId}.V_generatedExtrap) < 2
+        continue;
+    end
     ps = plot(patients{patId}.last2dop(2), patients{patId}.V_generatedExtrap(2), 's', LineWidth=4, color=c(patId, :));
     pl(patId) = plot(patients{patId}.last2dop, patients{patId}.V_generatedExtrap, 'o-', LineWidth=2, color=c(patId, :));
 end
 ylim([0 inf]);
-xlabel('Days since last para');ylabel('V_{gen} Extrap');legend([pl(valid) ps], [leg(valid) "Start"]);
+xlabel('Days since last para');ylabel('V_{gen} Extrap');%legend([pl(valid) ps], [leg(valid) "Start"]);
 
 nexttile;hold on;
 for patId = patIds
     pl(patId) = plot(patients{patId}.V_generatedExtrap./patients{patId}.last2dop, 'o-', LineWidth=2);
 end
 ylim([0 inf]);
-xlabel('para Sequence');ylabel('R_{gen} Extrap (L/day)');legend(pl(valid), leg(valid));
+xlabel('para Sequence');ylabel('R_{gen} Extrap (L/day)');%legend(pl(valid), leg(valid));
 
 nexttile;hold on;
 for patId = patIds
+    if length(patients{patId}.V_generatedExtrap) < 2
+        continue;
+    end
     ps(patId) = plot(patients{patId}.last2dop(2), patients{patId}.V_generatedExtrap(2)./patients{patId}.last2dop(2), 's', LineWidth=4, color=c(patId, :));
     pl(patId) = plot(patients{patId}.last2dop, patients{patId}.V_generatedExtrap./patients{patId}.last2dop, 'o-', LineWidth=2, color=c(patId, :));
 end
 ylim([0 inf]);
 xlabel('Days since last para');ylabel('R_{gen} Extrap (L/day)');legend(pl(valid), leg(valid));
-
+exportgraphics(gcf, 'GeneratedVolumes_extrapolated.png', 'Resolution',150);
 %% PLOTS - drained volume
 maxPat = inf;
 figure(5);clf;tl = tiledlayout('flow');
@@ -525,7 +537,7 @@ for patId = 1:length(patients)
 end
 % ylim([0 inf]);xlim([0 inf])
 %% save to json
-fid  = fopen('para_output.json', 'w');
+fid  = fopen('../data/para_output.json', 'w');
 fprintf(fid, jsonencode(patients, 'PrettyPrint', true))
 fclose(fid);
 %% Funciton evalFit
@@ -651,4 +663,3 @@ cl = lines(length(dflp));
     title(sprintf('%s to days since last paracentesis', quantityTitle));
     xlabel('Days from last paracentesis');ylabel(quantityTitle);
 end
-
