@@ -15,3 +15,4 @@
 *.tmp
 Scripts/Distribution/*.*
 *.dll
+*.pptx
