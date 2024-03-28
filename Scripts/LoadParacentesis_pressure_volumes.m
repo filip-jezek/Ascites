@@ -239,7 +239,7 @@ figure(3);clf;
 params = zeros(length(patId), 2);
 initParams = [-1 10];
 
-for patId = [54]%patIds(54:end) % patIds
+for patId = patIds(1:end) % patIds
     nexttile;hold on;
     prcs = patients{patId}.prc;
     fitPat = @(params) evalFit(params, prcs, false);
@@ -297,6 +297,7 @@ for patId = [54]%patIds(54:end) % patIds
 end
 
 %% METHOD 2: Extrapolating for zero pressure
+pm = @(a, b, x) max(0, a*(x - b));
 figure(4);clf; tiledlayout('flow');
 for patId = patIds
 
@@ -316,9 +317,11 @@ for patId = patIds
             % disregeard if less than 2 valid data points
             continue;
         end
-        % identify by extrapolating each one 
-        [ae gd] = fit(prc.Drained(prc.validDP)', prc.Pressure(prc.validDP)', pm_0, ...
-            'StartPoint', [-1, prc.Pressure(1)]);
+        % identify by extrapolating each one         
+        [ae gd] = fit(prc.Drained(prc.validDP)', prc.Pressure(prc.validDP)', pm, ...
+            'StartPoint', [-1, prc.Pressure(1)]);        
+        costs(prcId) = gd.rmse/(length(prc.Drained(prc.validDP)));
+        patients{patId}.costsExtrap(prcId) = costs(prcId);
         V0 = fsolve(@(x)ae(x) - 1e-6, 1, fsoptions);
         x_ = 0:0.1:ceil(V0);
         patients{patId}.V0(prcId) = V0;
@@ -334,16 +337,16 @@ for patId = patIds
             plot(patients{patId}.V_closeExtrap(prcId-1), patients{patId}.prc{prcId-1}.Pressure(end), '>', MarkerSize=12, Color=c(prcId, :), LineWidth=3)
             plot(patients{patId}.V_openExtrap(prcId), prc.Pressure(1), '<', MarkerSize=12, Color=c(prcId, :), LineWidth=3)
         end
-        
+
         plot(patients{patId}.V0(prcId) - prc.Drained(prc.validDP), prc.Pressure(prc.validDP), 'o-', Color=c(prcId, :), LineWidth=2, markerSize=8)
         plot(patients{patId}.V0(prcId) - prc.Drained(~prc.validDP), prc.Pressure(~prc.validDP), 'x', Color=c(prcId, :), LineWidth=4, markerSize=12)
         x_ = 0:0.1:20;
         plot(patients{patId}.V0(prcId) - x_, ae(x_), '--', Color=c(prcId, :));
-        
+
     end
 
     % params(patId, :) = fr;
-    title(sprintf('Patient %d costs %0.2f', patId, costAvg));
+    title(sprintf('Patient %d costs %0.2f', patId, nanmean(costs)));
     xlim([-inf inf]);ylim([0 inf]);
 end
 
@@ -540,6 +543,37 @@ end
 fid  = fopen('../data/para_output.json', 'w');
 fprintf(fid, jsonencode(patients, 'PrettyPrint', true))
 fclose(fid);
+%% save to csv
+names = ["Patient", "Procedure", ...
+    "DaysSinceLastPara", "TotalDrained", "P_open", "P_close", ...
+    "V_open_comb", "V_close_comb", "V_gen_comb", "slope_comb", "rate_comb","cost_comb"...
+    "V_openExtrap", "V_closeExtrap", "V_generatedExtrap", "ExtrapSlope", "rate_extrap","cost_extrap"];
+t = table;
+for patId = patIds
+    pat = patients{patId};
+    for prcId = 1:length(patients{patId}.prc)
+        prc = patients{patId}.prc{prcId};
+        
+        % first 17 patients in feasibility study
+        feasMax = 17;
+        if patId > feasMax
+            % follow/up study
+            patIdAdj = 100+patId - feasMax;
+        else
+            % feasibility study
+            patIdAdj = patId;
+        end
+        tr = {patIdAdj, prcId, ...
+            pat.last2dop(prcId), pat.Vdrained(prcId), pat.p_open(prcId), prc.Pressure(end), ...
+            pat.V_openCombined(prcId), pat.V_closeCombined(prcId), pat.V_generatedComb(prcId), -pat.params(1), pat.V_generatedComb(prcId)./pat.last2dop(prcId), pat.costs(prcId), ...
+            pat.V_openExtrap(prcId), pat.V_closeExtrap(prcId), pat.V_generatedExtrap(prcId), pat.ExtrapSlope(prcId), pat.V_generatedComb(prcId)./pat.last2dop(prcId), pat.costsExtrap(prcId)};
+        t(end + 1, :) = tr;
+    end
+end
+t.Properties.VariableNames = names;
+% T = table('Size', [0 2], 'VariableTypes', {'double', 'double'}, 'VariableNames', names);
+writetable(t, '../data/ExportParacentesis.csv');
+
 %% Funciton evalFit
 function [costAvg fitparam costs]= evalFit(params, prcSet, showPlots)
     v0 = 0;
@@ -614,7 +648,7 @@ function [costAvg fitparam costs]= evalFit(params, prcSet, showPlots)
         end
         % shift other drains
         [ae gd] = fit(prc.Drained(prc.validDP)', prc.Pressure(prc.validDP)', pm, 'StartPoint', init);        
-        costs(i) = gd.rmse/(length(prc.Drained));
+        costs(i) = gd.rmse/(length(prc.Drained(prc.validDP)));
         fitparam(i, :) = coeffvalues(ae);        
         if showPlots
             % v0 = fsolve(@(x)ae(x) - 1e-3, 1); == b :)
